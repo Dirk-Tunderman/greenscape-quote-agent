@@ -22,7 +22,7 @@ import { z } from "zod";
 import { createDraft } from "@/data/store";
 import type { NewQuoteFormState } from "./form-state";
 
-// Layer 1 of the input-quality defense — see docs/09-decision-log.md D41.
+// Layer 1 of the input-quality defense — see docs/build-process/09-decision-log.md D41.
 // Rejects obvious empty/too-short input for free, before any LLM token is
 // spent. The pre-flight relevance check (Skill 0) catches wrong-content-type;
 // extract_scope's __no_scope exit catches sparse-but-relevant inputs.

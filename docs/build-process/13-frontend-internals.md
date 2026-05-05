@@ -176,7 +176,7 @@ After all swapped, delete `data/mocks/quotes.ts`. Keep `data/mocks/catalog.ts` a
 
 ---
 
-## Design system adherence (`docs/08-design-system.md`)
+## Design system adherence (`docs/build-process/08-design-system.md`)
 
 | Spec | How it lands |
 |---|---|
@@ -248,7 +248,7 @@ After all swapped, delete `data/mocks/quotes.ts`. Keep `data/mocks/catalog.ts` a
 - **Adding a server action:** colocate with the page in `actions.ts`, return `{ ok: true } | { ok: false, error }` discriminated union, call `revalidatePath` for any affected paths.
 - **Adding a new page:** start in `app/.../page.tsx` as a Server Component, use Card/CardHeader/CardBody for layout consistency, add a NavItem in `components/Nav.tsx`.
 - **Don't add `app/api/` routes from the frontend side.** That's Chat A's territory; coordinate via STATUS.md if a new endpoint is needed.
-- **Tailwind class drift:** if you add a brand color, add it to `tailwind.config.ts` AND update `docs/08-design-system.md`.
+- **Tailwind class drift:** if you add a brand color, add it to `tailwind.config.ts` AND update `docs/build-process/08-design-system.md`.
 - **Accessibility:** never rely on color alone — status badges include text labels, certainty chips include words, errors have role="alert".
 - **Comments policy:** top-of-file headers explain WHY; inline comments only where the WHY is non-obvious. Don't comment what well-named identifiers already say.
 

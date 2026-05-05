@@ -19,15 +19,15 @@ Then read:
 
 1. **`STATUS.md`** — current state across all chats; what's done, what's blocked, who's doing what
 2. **`README.md`** — project overview + grouped doc index
-3. **`docs/09-decision-log.md`** — every key decision + reasoning. **Do not undo these without explicit user approval.**
+3. **`docs/build-process/09-decision-log.md`** — every key decision + reasoning. **Do not undo these without explicit user approval.**
 4. **`docs/00-project-brief.md`** — vision, scope, constraints
 5. **`docs/01-jobs-to-be-done.md`** — Marcus's mental model (your primary user)
-6. **`docs/02-features.md`** — user stories per page + edge cases + demo scenarios
+6. **`docs/build-process/02-features.md`** — user stories per page + edge cases + demo scenarios
 7. **`docs/03-architecture.md`** — stack, data model (you'll render these tables in UI)
 8. **`docs/04-agent-skills.md`** — agent output schemas (you render these in the review UI)
 9. **`docs/06-assumptions.md`** — proposal template structure (informs review page layout)
-10. **`docs/08-design-system.md`** — **READ THIS THOROUGHLY**. Brand, colors, typography, components, voice. Strict adherence required.
-11. **`docs/07-next-session-plan.md`** — multi-chat plan; YOUR section is "Chat B"
+10. **`docs/build-process/08-design-system.md`** — **READ THIS THOROUGHLY**. Brand, colors, typography, components, voice. Strict adherence required.
+11. **`docs/build-process/07-next-session-plan.md`** — multi-chat plan; YOUR section is "Chat B"
 
 Then read these skills:
 
@@ -42,14 +42,14 @@ After reading, surface these questions to the user:
 
 1. **Are Chats A and C running in parallel?** (Check STATUS.md per-chat status section)
 2. **Should I build with mock data first?** If Chat A's API isn't ready, build the UI with TypeScript types from `docs/03-architecture.md` data model + mock JSON data. Wire to real API later.
-3. **Confirm strict adherence to `docs/08-design-system.md`** — colors, typography, voice, component patterns. No deviations without user approval.
+3. **Confirm strict adherence to `docs/build-process/08-design-system.md`** — colors, typography, voice, component patterns. No deviations without user approval.
 
 ## STEP 2 — What you own
 
 You own:
 - All Next.js 15 pages: `app/quotes/page.tsx`, `app/quotes/new/page.tsx`, `app/quotes/[id]/page.tsx`, `app/admin/line-items/page.tsx`
 - All React components in `components/` (cards, tables, inputs, modals, badges, etc.)
-- Tailwind config additions per `docs/08-design-system.md`
+- Tailwind config additions per `docs/build-process/08-design-system.md`
 - Client-side state management (React state, useFormState, optimistic updates)
 - Loading states (skeletons), error states, empty states
 - Form validation feedback
@@ -68,7 +68,7 @@ If Chat A doesn't exist (you're solo), you build the API too. Otherwise stay in 
 
 ## STEP 3 — Page build order (simplest → most complex)
 
-Per `docs/02-features.md` user stories:
+Per `docs/build-process/02-features.md` user stories:
 
 1. **`/quotes/new`** — input form (customer info + scope notes textarea + submit). Simplest page.
 2. **`/admin/line-items`** — read-only catalog view. Simple table.
@@ -86,7 +86,7 @@ Per `docs/02-features.md` user stories:
 
 ## STEP 4 — Design adherence
 
-`docs/08-design-system.md` is non-negotiable. The brief explicitly penalizes "generic AI aesthetics" — this design system is the antidote.
+`docs/build-process/08-design-system.md` is non-negotiable. The brief explicitly penalizes "generic AI aesthetics" — this design system is the antidote.
 
 Critical rules:
 - **No purple gradients.** No sparkle emoji. No rounded-everything. No "amazing!" copy.
@@ -160,7 +160,7 @@ If both touch the same file (e.g., `app/layout.tsx`): coordinate via STATUS.md, 
 - [ ] Ambiguity callouts surface clearly
 - [ ] Audit log modal shows skill calls + costs
 - [ ] Mobile-responsive (works on phone)
-- [ ] Strict adherence to `docs/08-design-system.md` — visual review against the spec
+- [ ] Strict adherence to `docs/build-process/08-design-system.md` — visual review against the spec
 - [ ] WCAG AA contrast confirmed
 - [ ] No console errors on any page
 

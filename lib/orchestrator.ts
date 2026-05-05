@@ -93,7 +93,7 @@ export async function runDraft(body: DraftRequestBody): Promise<DraftResult> {
   // 0. Pre-flight relevance check (Haiku, ~$0.001) — cheapest possible defense
   // against accidental garbage input. Catches "wrong content type" (recipe,
   // mom conversation, lorem ipsum) BEFORE we burn Sonnet tokens or create a
-  // quote row. See docs/09-decision-log.md D41.
+  // quote row. See docs/build-process/09-decision-log.md D41.
   const relevance = await checkInputRelevance(
     {
       raw_notes: body.raw_notes,

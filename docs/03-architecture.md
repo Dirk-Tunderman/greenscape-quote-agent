@@ -9,48 +9,44 @@
 └────────┬─────────┘
          │ HTTPS
          ▼
-┌─────────────────────────────────────────────────┐
-│  Next.js 15 App on Hetzner VPS (Caddy + systemd)│
-│                                                 │
-│  Pages (App Router):                            │
-│   /quotes              → list                   │
-│   /quotes/new          → input form             │
-│   /quotes/[id]         → review/edit/approve    │
-│   /admin/line-items    → catalog view           │
-│                                                 │
-│  API Routes:                                    │
-│   POST /api/agent/draft       → orchestrator    │
-│   POST /api/quotes/[id]/send  → PDF + email     │
-│   GET  /api/quotes            → list            │
-│   PATCH /api/quotes/[id]      → edits           │
-└────────┬─────────────────┬──────────────────────┘
-         │                 │
-         ▼                 ▼
-┌─────────────────┐  ┌──────────────────┐
-│  Anthropic API  │  │  Supabase        │
-│                 │  │                  │
-│  Claude Sonnet  │  │  Postgres DB     │
-│  (extract,      │  │  Storage (PDFs)  │
-│   match,        │  │  Auth (optional) │
-│   generate)     │  │                  │
-│                 │  └──────────────────┘
-│  Claude Haiku   │
-│  (flag,         │
+┌──────────────────────────────────────────────────────┐
+│  Next.js 15 App on Hetzner VPS (Caddy + systemd)     │
+│                                                      │
+│  Pages (App Router):                                 │
+│   /quotes              → list                        │
+│   /quotes/new          → input form (text + audio)   │
+│   /quotes/[id]         → review/edit/approve         │
+│   /admin/line-items    → catalog CRUD                │
+│                                                      │
+│  API Routes (9):                                     │
+│   POST /api/agent/draft        → orchestrator        │
+│   POST /api/quotes/[id]/send   → PDF render + upload │
+│   POST /api/transcribe         → Deepgram audio→text │
+│   GET  /api/quotes             → list                │
+│   GET/PATCH/DELETE /api/quotes/[id]  → detail + edit │
+│   PATCH /api/customers/[id]    → customer fields     │
+│   GET/POST /api/line-items     → catalog list/add    │
+│   PATCH/DELETE /api/line-items/[id]                  │
+└────────┬─────────────────┬─────────────────┬─────────┘
+         │                 │                 │
+         ▼                 ▼                 ▼
+┌─────────────────┐  ┌──────────────────┐ ┌────────────┐
+│  Anthropic API  │  │  Supabase        │ │  Deepgram  │
+│                 │  │                  │ │  Nova-3    │
+│  Claude Sonnet  │  │  Postgres DB     │ │  (audio →  │
+│  (extract,      │  │  (greenscape     │ │   text)    │
+│   match,        │  │    schema, RLS)  │ └────────────┘
+│   generate)     │  │  Storage (PDFs   │
+│                 │  │    via signed    │
+│  Claude Haiku   │  │    URLs)         │
+│  (relevance,    │  │                  │
+│   flag,         │  └──────────────────┘
 │   validate)     │
 └─────────────────┘
-                              ▲
-         ┌────────────────────┘
-         ▼
-┌─────────────────┐
-│  Resend         │
-│  (Email send)   │
-└────────┬────────┘
-         │ SMTP
-         ▼
-┌─────────────────┐
-│  Customer       │
-│  (Email inbox)  │
-└─────────────────┘
+
+Marcus opens the signed PDF URL in a new tab and forwards
+through whichever channel he prefers (D32 — system does not
+auto-send to the customer).
 ```
 
 ---
@@ -63,8 +59,8 @@
 | Hosting | Hetzner VPS (mixed-use) | Existing infra; systemd service behind Caddy reverse proxy; satisfies brief's public deployment requirement |
 | Database | Supabase (Postgres) | Managed Postgres, generous free tier, built-in auth + storage, fits brief's persistent storage requirement |
 | LLM | Anthropic Claude (Sonnet + Haiku) | Sonnet for quality on generation tasks, Haiku for cost on classification/validation. Cost-aware multi-model strategy is a brief bonus criterion. |
-| Email | Resend | Simplest API for outbound email, dev-friendly, satisfies external integration requirement |
-| PDF | `react-pdf` (or `puppeteer` fallback) | Real PDFs from React components |
+| Audio | Deepgram Nova-3 | Already wired into Tunderman stack (`tools.tunderman.cc`), one-day port via `POST /api/transcribe` (D43) |
+| PDF | `react-pdf` | PDF buffer from React components → uploaded to Supabase Storage → signed URL returned to Marcus (D32 — no auto-send to customer) |
 | Schema validation | `zod` | Runtime validation of LLM outputs against expected structure |
 | Styling | Tailwind CSS | Fast UI iteration, consistent design tokens |
 | Auth (optional) | Supabase Auth (magic link) | If time, single-user login; otherwise demo mode (documented) |
@@ -78,7 +74,7 @@
 | Input UI | `/quotes/new` | Customer info + project metadata + scope notes textarea |
 | Agent orchestrator | `/api/agent/draft` | Runs the skill chain on submitted notes |
 | Draft review UI | `/quotes/[id]` | Shows scope, line items, totals, draft copy; all editable |
-| Approve & send | `/api/quotes/[id]/send` | Generates PDF, sends via Resend, marks `sent` |
+| PDF generation | `/api/quotes/[id]/send` | Renders PDF, uploads to Supabase Storage, returns signed URL (D32 — re-runnable; not terminal) |
 | Quote list | `/quotes` | History table with filters + status |
 | Catalog view | `/admin/line-items` | Read-only line item browser |
 
@@ -96,8 +92,8 @@
    - `validate_output` → pass/fail + reasons
 4. All artifacts persisted to `quote_artifacts`; status updated to `draft_ready`
 5. Marcus opens `/quotes/[id]`, reviews, edits any field; PATCH on save
-6. On approve → status = `sending` → PDF generated → email sent via Resend → status = `sent`
-7. Outcome tracked via UI: status updates to `accepted` / `rejected` / `lost` later
+6. On approve → PDF generated → uploaded to Supabase Storage → signed URL returned → status = `sent` (re-runnable; not terminal — Marcus can edit and re-generate)
+7. Outcome tracked via UI: status updates to `accepted` / `rejected` / `lost` later (these ARE terminal — `readOnly` flips on outcome states)
 
 ---
 
@@ -121,7 +117,7 @@
 | name | text | e.g., "Travertine paver patio - premium grade" |
 | description | text | for the LLM context |
 | unit | text | sq_ft, linear_ft, each, zone, hour, lump_sum |
-| unit_price | numeric | base price (all-in: labor + materials bundled per `docs/10-industry-research.md` Q1) |
+| unit_price | numeric | base price (all-in: labor + materials bundled per `docs/build-process/10-industry-research.md` Q1) |
 | item_type | enum | `fixed` (default), `allowance` (known-unknown shown to customer, e.g., "lighting fixtures: $1,200 allowance"), `custom` (Marcus prices manually). Per research Q6. |
 | material_cost_pct | numeric | informational |
 | created_at | timestamptz | |
@@ -193,16 +189,16 @@
 
 | Integration | Purpose | Auth |
 |---|---|---|
-| Anthropic API | Agent reasoning | API key (server-side) |
-| Resend | Outbound email | API key (server-side) |
-| Supabase | DB, storage, auth | Service role key (server-side); anon key (client) |
+| Anthropic API | 5-skill agent chain | API key (server-side) |
+| Supabase | DB + Storage (signed PDF URLs) | Service role key (server-side); anon key (client) |
+| Deepgram | Audio transcription (Nova-3) | API key (server-side) |
 
 ---
 
 ## Security
 
 - All third-party API keys stored in `/opt/greenscape-quote-agent/.env` on the server; server-side only
-- Client never sees Anthropic / Resend keys
+- Client never sees Anthropic / Deepgram / service-role keys
 - Supabase Row-Level Security (RLS) enabled on all tables (single-user app, but good practice)
 - `.env.example` documents all required vars without real values
 - Customer emails only collected with intent to send a proposal — no marketing use

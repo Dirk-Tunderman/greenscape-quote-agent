@@ -13,7 +13,7 @@ Next update: pre-Loom code-review pass (if desired) → submission
 
 ## Current overall phase
 
-**v2 UX iteration complete.** Public URL `https://quote-agent.tunderman.cc` is the demo-ready product. Marcus retains full control after the agent runs — every surface that can be wrong (line items, customer fields, proposal sections, PDF) is editable, re-runnable, or auto-derived from a single source of truth. See `docs/09-decision-log.md` D31–D36 for the post-deploy decisions and `LEARNING.md` for the gotchas.
+**v2 UX iteration complete.** Public URL `https://quote-agent.tunderman.cc` is the demo-ready product. Marcus retains full control after the agent runs — every surface that can be wrong (line items, customer fields, proposal sections, PDF) is editable, re-runnable, or auto-derived from a single source of truth. See `docs/build-process/09-decision-log.md` D31–D36 for the post-deploy decisions and `LEARNING.md` for the gotchas.
 
 **Live list (5 quotes):**
 - Linda Whitaker — $26,107 · finalized · 0.154 cost
@@ -48,7 +48,7 @@ ROC license + insurance fields stripped from generation flow per user instructio
 
 ## ⚡ HEADS-UP for Chat A and Chat B (industry research integrated 2026-05-05)
 
-`docs/10-industry-research.md` was just written and integrated. **Schema and proposal template changed** before you commit your migrations / few-shot examples. Read decision log entries D26-D30. Specifically:
+`docs/build-process/10-industry-research.md` was just written and integrated. **Schema and proposal template changed** before you commit your migrations / few-shot examples. Read decision log entries D26-D30. Specifically:
 
 - **`greenscape.line_items`** has a new `item_type` enum (`fixed | allowance | custom`). Default `fixed`. Update your migration + seed accordingly. (`docs/03-architecture.md` updated.)
 - **`greenscape.quotes`** has 3 new columns: `payment_schedule jsonb` (default 30/30/30/10), `roc_license_number text`, `insurance_carrier text`. (`docs/03-architecture.md` updated.)
@@ -56,9 +56,9 @@ ROC license + insurance fields stripped from generation flow per user instructio
 - **Voice spec** reinforced: greeting must reference site walk by date + 1-2 specific observations; material descriptions stay at category/grade level (no SKU lock-in).
 - **Chat B mock catalog (`lib/mocks/catalog.ts`)** should add `item_type` field to align with new schema. Most existing items = `fixed`. Add 1-2 `allowance` examples (e.g., "Lighting allowance: $1,200").
 
-**One client-engagement-grade finding (not architectural):** AZ TPT residential exemption ≤$100K per unit covers most of Marcus's $8K-$120K range — flag at Day 1 of real engagement, potential money on the table. (`docs/09-decision-log.md` D29.)
+**One client-engagement-grade finding (not architectural):** AZ TPT residential exemption ≤$100K per unit covers most of Marcus's $8K-$120K range — flag at Day 1 of real engagement, potential money on the table. (`docs/build-process/09-decision-log.md` D29.)
 
-Phase progression (from `docs/05-build-plan.md`):
+Phase progression (from `docs/build-process/05-build-plan.md`):
 - [x] Pre-build planning + strategy + setup docs
 - [x] Phase 0 — Setup (Next.js 15 scaffold + TS + Tailwind + types + design tokens — done by Chat B; backend deps + Supabase wiring in progress by Chat A)
 - [ ] Phase 1 — Data foundation (schema migration + seed catalog)
@@ -111,7 +111,7 @@ Phase progression (from `docs/05-build-plan.md`):
 - **Waiting on:** user permission for one-shot Supabase migration apply + populated `.env.local`
 
 ### Chat B (Frontend Builder) — **all 4 pages shipped (mock-backed)**
-- **Owns:** all Next.js pages + components per `docs/08-design-system.md`
+- **Owns:** all Next.js pages + components per `docs/build-process/08-design-system.md`
 - **Done:**
   - Next.js 15 scaffold, Tailwind v3 with brand tokens, Cormorant Garamond + Inter loaded, tabular-num utility class
   - `lib/types.ts` (full shared API contract — Chat A also editing/extending this), `lib/utils.ts` (formatters, cn helper)
@@ -121,10 +121,10 @@ Phase progression (from `docs/05-build-plan.md`):
   - **Server actions** for mutations: `createDraftAction`, `updateLineItemsAction`, `updateProposalAction`, `approveAndSendAction`, `setOutcomeAction` — no `/api/` conflicts
   - **Components:** `Brand`, `Nav` (with cumulative cost display), `PageHeader`, `Card`/`CardHeader`/`CardBody`, `Button` (4 variants × 3 sizes), `Field`/`Input`/`Textarea`/`Select`, `StatusBadge` (8 statuses, color + dot + label), `Modal` (Esc + backdrop close), `EmptyState`
   - Verified via Chrome at 1440px and 375px — no console errors on any page; >$30K render flag visible; validation_failed state disables Approve correctly
-- **Documentation pass (2026-05-05 PM):** wrote `docs/13-frontend-internals.md` (deep-dive: page-by-page anatomy, components catalog, data flow, design-system adherence, edge cases, swap-to-real-API recipe, where-to-look-when troubleshooting matrix). Added top-of-file JSDoc headers to `data/store.ts`, `data/mocks/catalog.ts`, `data/mocks/quotes.ts`, `app/quotes/[id]/page.tsx`, `app/quotes/[id]/LineItemsTable.tsx`, `app/quotes/[id]/actions.ts`, `app/quotes/new/actions.ts`, `app/quotes/new/NewQuoteForm.tsx`, `components/StatusBadge.tsx`, `components/Modal.tsx` — explaining patterns/contracts/seams.
+- **Documentation pass (2026-05-05 PM):** wrote `docs/build-process/13-frontend-internals.md` (deep-dive: page-by-page anatomy, components catalog, data flow, design-system adherence, edge cases, swap-to-real-API recipe, where-to-look-when troubleshooting matrix). Added top-of-file JSDoc headers to `data/store.ts`, `data/mocks/catalog.ts`, `data/mocks/quotes.ts`, `app/quotes/[id]/page.tsx`, `app/quotes/[id]/LineItemsTable.tsx`, `app/quotes/[id]/actions.ts`, `app/quotes/new/actions.ts`, `app/quotes/new/NewQuoteForm.tsx`, `components/StatusBadge.tsx`, `components/Modal.tsx` — explaining patterns/contracts/seams.
 - **Currently doing:** done — frontend complete, mock-backed, fully documented, ready for handoff or for Chat A's API to be wired in
 - **Blockers:** none
-- **Waiting on:** Chat A's API routes — when ready, swap `data/store.ts` function bodies to `fetch()` against `/api/agent/draft`, `GET/PATCH /api/quotes`, `POST /api/quotes/[id]/send`. Pages don't change. **Recipe in `docs/13-frontend-internals.md` § "Wiring to backend".**
+- **Waiting on:** Chat A's API routes — when ready, swap `data/store.ts` function bodies to `fetch()` against `/api/agent/draft`, `GET/PATCH /api/quotes`, `POST /api/quotes/[id]/send`. Pages don't change. **Recipe in `docs/build-process/13-frontend-internals.md` § "Wiring to backend".**
 
 ### Chat C (Hetzner Deployment) — **DONE · public URL live**
 - **Owns:** server-side prep on `157.90.124.14` (Caddy site block, systemd unit, port assignment)
@@ -140,7 +140,7 @@ Phase progression (from `docs/05-build-plan.md`):
   - Stopped hello-world service after verify (Chat A's code will replace)
   - Final verification gate: all 6 SchilderGroei + lead-website services + Caddy `active`; service-list diff vs pre-change snapshot **identical**; Caddy validate clean
   - Wrote `scripts/teardown.sh` (idempotent, confirmation-gated cleanup of DNS/Caddy/service/dir for end of demo window)
-  - **Wrote `docs/12-deployment.md`** — canonical deployment reference (request path, file layout, DNS, Caddy block, systemd unit, deploy procedure, env expectations, verification gate, troubleshooting matrix, isolation rules, teardown, maintenance notes). Tightened inline comments in `scripts/teardown.sh`. Updated README's Deploy URL + docs index.
+  - **Wrote `docs/build-process/12-deployment.md`** — canonical deployment reference (request path, file layout, DNS, Caddy block, systemd unit, deploy procedure, env expectations, verification gate, troubleshooting matrix, isolation rules, teardown, maintenance notes). Tightened inline comments in `scripts/teardown.sh`. Updated README's Deploy URL + docs index.
 - **Last commit:** see git log (Chat C: docs/12-deployment + inline comments)
 - **Blockers:** none
 - **Waiting on:** Chat A to deploy code into `/opt/greenscape-quote-agent` and `systemctl restart greenscape-quote-agent`
@@ -176,7 +176,7 @@ Phase progression (from `docs/05-build-plan.md`):
 | 2026-05-05 | Chat A v2 | **PDF generation no longer terminal + manual line items.** `/send` route is re-runnable from `sent`; `readOnly` flips only on outcome states. LineItemsTable refactored to full-list save model with per-row delete (×) button, "+ Add line item" button, inline description + unit + category editors. `lib/types.ts` `QuoteLineItem.line_item_id` relaxed to `string \| null` to support custom (no-catalog-FK) rows. Status badge "Finalized" → "PDF Ready"; banner copy + Approve button label adapted. |
 | 2026-05-05 | Chat A v2 | **Server-side exception fix on /quotes/new submit.** Next.js 15 strictly enforces `"use server"` files to export only async functions; `EMPTY_FORM_STATE` const moved to a sibling `form-state.ts` module. Latent pre-v2 bug exposed by first browser form submission. |
 | 2026-05-05 | Chat A v2 | **Wire-up complete.** `data/store.ts` calls real `/api/*` endpoints (mocks removed from live path). `/quotes` list shows DB rows; `/quotes/new` triggers the real agent; line-item + section edits persist; "Approve & download PDF" replaces email send (Resend deferred to Phase 2). Section-by-section editable proposal (parse on read, recombine on save). Budget signal field deleted. DB cleaned (3 validation_failed rows removed); 2 new real seeds added (Anderson $3.5K, Whitaker $26K) + Patel marked accepted to vary list states. Section-edit + finalize → PDF download verified end-to-end. |
-| 2026-05-05 | Chat B | Documentation pass — wrote `docs/13-frontend-internals.md` (deep-dive frontend ref) + JSDoc headers on 10 key files. Frontend complete: 4 pages live on mocks, swap recipe documented, ready for API wire-in. |
+| 2026-05-05 | Chat B | Documentation pass — wrote `docs/build-process/13-frontend-internals.md` (deep-dive frontend ref) + JSDoc headers on 10 key files. Frontend complete: 4 pages live on mocks, swap recipe documented, ready for API wire-in. |
 | 2026-05-05 | Chat A | **END-TO-END LIVE.** 2 integration tests on PROD passed (Patel $15,955 patio+irrigation, Chen $59,000 full backyard with `needs_render:true`). Real Anthropic Sonnet 4.5 + Haiku 4.5 chains, real Supabase DB + Storage, real Resend email send w/ branded PDF attached. Validate-on-fail retry loop verified. Total dev+test Anthropic spend ≈ $0.50. |
 | 2026-05-05 | Chat A | Aligned code with research D26-D30: migration 003 (item_type / payment_schedule / ROC / insurance), 9-section template w/ Exclusions + Warranty + License Block, ROC + payment-schedule-sum validators; build green; **ROC/insurance later stripped per user (kept columns for forward compat)** |
 | 2026-05-05 | Chat A | Backend Phases 0–7: schema + seed SQL · 5 skills + orchestrator (Sonnet 4.5 + Haiku 4.5) · 5 API routes · branded react-pdf · Resend send · audit log + $0.50 cap · `scripts/deploy.sh` |
@@ -186,14 +186,14 @@ Phase progression (from `docs/05-build-plan.md`):
 | 2026-05-05 | Chat C | Hello-world Next.js 14 standalone build verified loopback-reachable at `http://localhost:3100` (HTTP 200, 4231 bytes); service stopped post-verify |
 | 2026-05-05 | Chat C | Created `/etc/systemd/system/greenscape-quote-agent.service` (loopback bind, root user, optional .env, Restart=on-failure); daemon-reloaded; not enabled |
 | 2026-05-05 | Chat C | Created `/opt/greenscape-quote-agent` on Server 1 + snapshotted services, ports, Caddyfile (in `/tmp/*-before.*`) |
-| 2026-05-05 | Chat B | Shipped all 4 pages (`/quotes`, `/quotes/new`, `/quotes/[id]`, `/admin/line-items`) with mock-backed data adapter, server actions, full component library, design system per `docs/08-design-system.md`. 9-section proposal mock + allowance/custom catalog items aligned to D26-D30. No `app/api/` files — adapter is the swap point for Chat A's real API. |
+| 2026-05-05 | Chat B | Shipped all 4 pages (`/quotes`, `/quotes/new`, `/quotes/[id]`, `/admin/line-items`) with mock-backed data adapter, server actions, full component library, design system per `docs/build-process/08-design-system.md`. 9-section proposal mock + allowance/custom catalog items aligned to D26-D30. No `app/api/` files — adapter is the swap point for Chat A's real API. |
 | 2026-05-05 | Chat A | Onboarded; STATUS sync; began Phase 1 (Supabase migration + backend deps) |
 | 2026-05-05 | Chat B | Scaffolded Next.js 15 + TS + Tailwind w/ brand tokens; wrote `lib/types.ts` (API contract), `data/mocks/catalog.ts` (~58 items), `lib/utils.ts`, `.env.example` skeleton |
 | 2026-05-05 | planning | ⚡ Industry research integrated → schema + 9-section template (D26-D30); see HEADS-UP above |
-| 2026-05-05 | planning | `docs/10-industry-research.md` written (research sub-agent, 1466 words, 15 questions answered with primary sources) |
+| 2026-05-05 | planning | `docs/build-process/10-industry-research.md` written (research sub-agent, 1466 words, 15 questions answered with primary sources) |
 | 2026-05-05 | planning | Initial commit pushed: strategy.md + docs/00-09 + STATUS.md + prompts/ |
-| 2026-05-05 | planning | Decision log created (`docs/09-decision-log.md`) |
-| 2026-05-05 | planning | Design system created (`docs/08-design-system.md`) |
+| 2026-05-05 | planning | Decision log created (`docs/build-process/09-decision-log.md`) |
+| 2026-05-05 | planning | Design system created (`docs/build-process/08-design-system.md`) |
 | 2026-05-05 | planning | Repo set to private on GitHub |
 | 2026-05-05 | planning | Strategy doc + 6 project setup docs + assumptions registry complete |
 | 2026-05-05 | planning | GitHub repo created: greenscape-quote-agent |

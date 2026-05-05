@@ -170,7 +170,7 @@ Future restructuring possible if scope grows. For now, flat + numbered + grouped
 
 ---
 
-## Research-corrected decisions (post `docs/10-industry-research.md`)
+## Research-corrected decisions (post `docs/build-process/10-industry-research.md`)
 
 ### D26 · Payment schedule changed from 50/25/25 to 30/30/30/10
 

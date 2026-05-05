@@ -20,10 +20,10 @@ Read in this order:
 1. **`STATUS.md`** — current state across all chats
 2. **`README.md`** — project overview
 3. **`~/Desktop/system/credentials.md`** — **CRITICAL**. Server 1 SSH details, conventions, what NOT to touch (e.g., SchilderGroei production services)
-4. **`docs/09-decision-log.md`** — esp. D10 (Hetzner over Vercel) — understand WHY this decision was made
+4. **`docs/build-process/09-decision-log.md`** — esp. D10 (Hetzner over Vercel) — understand WHY this decision was made
 5. **`docs/03-architecture.md`** — Deployment section
-6. **`docs/05-build-plan.md`** — Phase 0 task #4 — what success looks like
-7. **`docs/07-next-session-plan.md`** — your "Chat C" section
+6. **`docs/build-process/05-build-plan.md`** — Phase 0 task #4 — what success looks like
+7. **`docs/build-process/07-next-session-plan.md`** — your "Chat C" section
 
 Then read this skill:
 

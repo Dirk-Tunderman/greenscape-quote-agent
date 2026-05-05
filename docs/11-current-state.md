@@ -189,8 +189,6 @@ Per-quote cap of $0.50 is enforced **before** the corrective retry — if you bl
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | shared instance — bypasses RLS in API routes |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | same as above |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | shared anon key |
-| `RESEND_API_KEY` | yes (legacy) | shared `re_cfHypG2M_M12...` — retained but unused by any live route (D32) |
-| `RESEND_FROM_EMAIL` | yes (legacy) | `Greenscape Pro <quotes@notifications.tunderman.io>` |
 | `DEEPGRAM_API_KEY` | yes (audio) | shared with `tools.tunderman.cc`. Required for `POST /api/transcribe` to do anything other than 500. |
 | `NEXT_PUBLIC_APP_URL` | optional | informational |
 
@@ -214,7 +212,7 @@ The systemd unit lives at `/etc/systemd/system/greenscape-quote-agent.service` (
 These were explicitly cut from the 24h MVP per `docs/00-project-brief.md`. Each maps to a Phase-2 swap path documented in `docs/06-assumptions.md`.
 
 - ✅ ~~Voice memo input + transcription~~ — shipped via Deepgram Nova-3, see D43
-- ❌ Customer-facing email send on approval (Phase 2 — `lib/email.ts` Resend wrapper retained, no live route invokes it; D32)
+- ❌ Customer-facing email send on approval (Phase 2 — Marcus opens the signed PDF URL and forwards through whichever channel he prefers; D32)
 - ❌ GHL CRM push on approval (Phase 2 — needs GHL OAuth)
 - ❌ Stripe deposit invoice generation (Phase 2)
 - ❌ DocuSign signature flow (handled in GHL natively)
@@ -250,14 +248,14 @@ These were explicitly cut from the 24h MVP per `docs/00-project-brief.md`. Each 
 | API request/response shapes | `lib/types.ts` |
 | What's in the catalog? | `supabase/migrations/20260505_002_seed_pricing_catalog.sql` |
 | How does the LLM cost get tracked? | `lib/anthropic.ts` (`priceMessage`) + `lib/audit.ts` |
-| Why are there exactly 5 skills (not 1, not 10)? | `docs/09-decision-log.md` D15 |
-| Why use `greenscape` schema (not `public`)? | `docs/09-decision-log.md` D13 |
-| Why is editing not locked when a PDF is generated? | `docs/09-decision-log.md` D33 |
-| Why don't we email the customer ourselves? | `docs/09-decision-log.md` D32 |
-| Why is the proposal's "Detailed Scope & Pricing" section auto-derived? | `docs/09-decision-log.md` D34 |
+| Why are there exactly 5 skills (not 1, not 10)? | `docs/build-process/09-decision-log.md` D15 |
+| Why use `greenscape` schema (not `public`)? | `docs/build-process/09-decision-log.md` D13 |
+| Why is editing not locked when a PDF is generated? | `docs/build-process/09-decision-log.md` D33 |
+| Why don't we email the customer ourselves? | `docs/build-process/09-decision-log.md` D32 |
+| Why is the proposal's "Detailed Scope & Pricing" section auto-derived? | `docs/build-process/09-decision-log.md` D34 |
 | How does the proposal template (PDF) look? | `lib/pdf/template.tsx` (rendering) + `lib/proposal/sections.ts` (parser shared with the editor — D45) |
 | How does audio upload work? | `app/api/transcribe/route.ts` + `components/AudioUploader.tsx` — D43 |
-| Why does Modal use createPortal? | `components/Modal.tsx` head comment + `docs/09-decision-log.md` D47 |
+| Why does Modal use createPortal? | `components/Modal.tsx` head comment + `docs/build-process/09-decision-log.md` D47 |
 | How does delete work? | `DELETE` handler in `app/api/quotes/[id]/route.ts` + `app/quotes/DeleteQuoteButton.tsx` — D48 |
 | Frontend pages | `app/quotes/`, `app/admin/`, `components/` |
 | Frontend ↔ API wire-up | `data/store.ts` (the seam — every page/action goes through here) |
@@ -292,6 +290,6 @@ To run integration tests against a clean DB:
 The original 3-chat split (A backend / B frontend / C deploy) ran during the initial build. After the v2 wire-up the boundary is informal — touch what you need to touch — but the originating ownership is preserved in commit history if you need to trace why a specific piece looks the way it does.
 
 - **STATUS.md** is the live coordination dashboard — read at start of session.
-- **`docs/09-decision-log.md`** records *why*. Don't undo entries without explicit user OK.
+- **`docs/build-process/09-decision-log.md`** records *why*. Don't undo entries without explicit user OK.
 - **This doc (`11-current-state.md`)** is *what is* — the WHAT, not the WHY. Refresh on behavior or surface-area change, not on every commit.
 - **`LEARNING.md`** at repo root captures non-obvious gotchas worth keeping for future sessions.

@@ -190,7 +190,7 @@ The tool queries the `line_items` table by category + fuzzy match on name/descri
 - Embrace: specific references to the customer's project, clear scope, transparent pricing
 - Brand position: quality > price; "photographs well"
 
-**Required sections (9, per `docs/06-assumptions.md` Section 3 + `docs/10-industry-research.md`):**
+**Required sections (9, per `docs/06-assumptions.md` Section 3 + `docs/build-process/10-industry-research.md`):**
 1. Cover (logo placeholder, "Proposal for [Customer Name]", address, date, proposal #)
 2. Greeting / Introduction (warm, name-first, references site walk by date + 1-2 specific observations)
 3. Project Overview (1-2 paragraphs scope + optional 1-3 past-project photo placeholders)

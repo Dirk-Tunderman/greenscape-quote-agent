@@ -41,7 +41,7 @@ An **AI quote drafting agent** that:
 - Ambiguity flagging
 - Proposal draft generation in branded template
 - Admin review UI with inline edits
-- Approval flow → PDF generation → email send via Resend
+- Approval flow → PDF generation → signed Supabase Storage URL for download (D32 — Marcus owns customer relationship; system doesn't auto-send)
 - Persistent storage on Supabase (quotes, line items, artifacts, audit log)
 - Cost tracking per quote
 - Public deployed URL (Hetzner — temporary host on existing infra)
@@ -65,7 +65,7 @@ An **AI quote drafting agent** that:
 - [x] GitHub repo with real commit history (no mega-commit)
 - [x] Persistent storage (Supabase)
 - [x] Real LLM API doing meaningful work
-- [x] At least one external integration (Resend)
+- [x] At least one external integration (Anthropic API + Supabase Storage signed URLs + Deepgram audio)
 - [x] Documented `.env.example`
 
 ### Strongly encouraged (bonus)

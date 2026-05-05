@@ -6,7 +6,7 @@
  *   Chen integration test on production)
  * - One place that prices a `Message.usage` into a USD cost so cost-tracking
  *   can never drift between skills
- * - One place to swap models (cost-aware split per docs/09-decision-log.md D14:
+ * - One place to swap models (cost-aware split per docs/build-process/09-decision-log.md D14:
  *   Sonnet for quality-critical tasks, Haiku for classification/validation)
  *
  * Pricing (per million tokens) is hard-coded in PRICE_PER_MTOK. Update there

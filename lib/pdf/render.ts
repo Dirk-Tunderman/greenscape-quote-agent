@@ -1,9 +1,6 @@
 /**
  * Thin wrapper around react-pdf's renderToBuffer. Returns a Node Buffer
- * suitable for Supabase Storage upload + Resend email attachment in one call.
- *
- * The element/Buffer dance is just to satisfy react-pdf's typing; the
- * runtime work is identical to JSX.
+ * suitable for Supabase Storage upload.
  */
 
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";

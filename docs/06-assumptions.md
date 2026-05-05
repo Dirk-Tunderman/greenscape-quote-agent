@@ -47,7 +47,7 @@ The architecture is built so that every assumption maps to a swappable component
 
 **What docs say:** Margin is ~38% on design+build (onboarding line 24). 50% deposit on signing (line 71). Nothing else.
 
-**What we assumed (validated by `docs/10-industry-research.md`):**
+**What we assumed (validated by `docs/build-process/10-industry-research.md`):**
 - Prices are all-in (labor + materials bundled per line item), not separated → ✅ confirmed by research Q1 (residential design-build standard)
 - 38% margin is already baked into each `unit_price`, not added on top
 - No tax line on the proposal → ✅ confirmed by research Q3. Phoenix/AZ specific: post-July-2021 statute removed the requirement to separately state TPT, AND there's a residential exemption from prime-contracting TPT for projects ≤$100K per unit (covers most of $8K-$120K range). Flag this to Marcus at onboarding — potential money on the table.
@@ -69,7 +69,7 @@ The architecture is built so that every assumption maps to a swappable component
 
 **What docs say:** *"plugs line items into a Google Doc template"* (transcript line 11), exports to PDF (onboarding line 64). 50% deposit (line 71). Customer signs via DocuSign-style flow in GHL after (line 70). Nothing about sections, length, or voice.
 
-**What we assumed (REVISED 7→9 sections per `docs/10-industry-research.md`):**
+**What we assumed (REVISED 7→9 sections per `docs/build-process/10-industry-research.md`):**
 
 | # | Section | Purpose |
 |---|---|---|
@@ -100,7 +100,7 @@ The architecture is built so that every assumption maps to a swappable component
 
 **What docs say:** Greenscape positioning is *"quality, reliability, and a finished product that photographs well"* (onboarding line 18). Premium. Doesn't compete on price. Customers apologize when they pick competitors (transcript line 19). Marcus's reactivation language is personal: *"Hey, we were talking about your backyard last spring..."* (line 59).
 
-**What we assumed (voice spec for `generate_proposal` skill — validated by `docs/10-industry-research.md`):**
+**What we assumed (voice spec for `generate_proposal` skill — validated by `docs/build-process/10-industry-research.md`):**
 - **Premium craftsman.** Confident in the work, specific in the details.
 - **Warm, not corporate.** Speaks to the customer, not at them. ✅ Validated (research Q10 — "warm-and-fuzzy" intro is residential standard).
 - **Specific to their project.** Avoids generic templating phrases. **Greeting must reference the site walk by date + 1-2 specific observations from notes** (research Q10 reinforcement).

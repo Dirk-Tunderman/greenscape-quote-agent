@@ -282,7 +282,7 @@ If this deploy outlives the take-home demo and becomes longer-lived, here's what
 
 | Path | Purpose |
 |---|---|
-| `docs/12-deployment.md` | this file — canonical deployment reference |
+| `docs/build-process/12-deployment.md` | this file — canonical deployment reference |
 | `scripts/teardown.sh` | end-of-demo cleanup |
 | `STATUS.md` (Chat C row, Deploy URL, Recent completions) | live state |
 

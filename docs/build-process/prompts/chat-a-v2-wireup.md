@@ -18,7 +18,7 @@ Read in this order:
 1. **`STATUS.md`** — current state across all chats
 2. **`CLAUDE.md`** — project priming (was added after your compaction)
 3. **`docs/11-current-state.md`** — what the application actually does today (canonical WHAT)
-4. **`docs/09-decision-log.md`** — every key decision + reasoning. Pay attention to D26-D30 (research integrations) and D11 (Hetzner over Vercel).
+4. **`docs/build-process/09-decision-log.md`** — every key decision + reasoning. Pay attention to D26-D30 (research integrations) and D11 (Hetzner over Vercel).
 5. **`docs/06-assumptions.md`** — assumption registry, esp. Section 3 (proposal template structure)
 6. **This file** — the iteration plan
 

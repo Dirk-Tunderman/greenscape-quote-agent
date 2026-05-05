@@ -20,16 +20,16 @@ Then read:
 1. **`STATUS.md`** — current state across all chats; what's done, what's blocked, who's doing what
 2. **`README.md`** — project overview + grouped doc index
 3. **`strategy.md`** — the L&S Part 1 deliverable; ranking + reasoning
-4. **`docs/09-decision-log.md`** — every key decision + reasoning. **Do not undo these without explicit user approval.**
+4. **`docs/build-process/09-decision-log.md`** — every key decision + reasoning. **Do not undo these without explicit user approval.**
 5. **`docs/00-project-brief.md`** — vision, scope, constraints
 6. **`docs/01-jobs-to-be-done.md`** — Marcus's mental model + system jobs
-7. **`docs/02-features.md`** — full feature list with MVP cut + edge cases
+7. **`docs/build-process/02-features.md`** — full feature list with MVP cut + edge cases
 8. **`docs/03-architecture.md`** — stack, data model, cost analysis
 9. **`docs/04-agent-skills.md`** — your core artifact: orchestrator + 5 skills with full specs
-10. **`docs/05-build-plan.md`** — 18h sequenced plan with phases + tasks
+10. **`docs/build-process/05-build-plan.md`** — 18h sequenced plan with phases + tasks
 11. **`docs/06-assumptions.md`** — assumption registry + replaceability map
-12. **`docs/07-next-session-plan.md`** — multi-chat orchestration plan; YOUR task list is in here
-13. Briefly skim `docs/08-design-system.md` (Chat B owns this; you should know it exists)
+12. **`docs/build-process/07-next-session-plan.md`** — multi-chat orchestration plan; YOUR task list is in here
+13. Briefly skim `docs/build-process/08-design-system.md` (Chat B owns this; you should know it exists)
 
 Then read these skills (they tell you HOW to work):
 
@@ -58,7 +58,7 @@ You own:
 - All agent skill chain code (`lib/skills/extract_scope.ts`, `match_pricing.ts`, `flag_ambiguity.ts`, `generate_proposal.ts`, `validate_output.ts`)
 - Orchestrator (`lib/orchestrator.ts`) with retry-on-validate-fail logic
 - All API routes (`app/api/agent/draft`, `app/api/quotes/[id]/send`, etc.)
-- PDF generation (react-pdf, branded template per `docs/08-design-system.md` PDF section)
+- PDF generation (react-pdf, branded template per `docs/build-process/08-design-system.md` PDF section)
 - Resend email integration
 - Cost tracking + audit log (per `docs/03-architecture.md` `audit_log` table)
 - Final integration testing
@@ -73,9 +73,9 @@ If Chat B/C don't exist (you're solo), you absorb their work — but do not do t
 
 ## STEP 3 — Execute per the build plan
 
-Follow `docs/05-build-plan.md` Phases 0-10 in order. Within each phase, use the `superpowers:subagent-driven-development` pattern: dispatch implementer sub-agent → spec reviewer → code quality reviewer → mark complete → next task.
+Follow `docs/build-process/05-build-plan.md` Phases 0-10 in order. Within each phase, use the `superpowers:subagent-driven-development` pattern: dispatch implementer sub-agent → spec reviewer → code quality reviewer → mark complete → next task.
 
-**Sub-agent task list** (from `docs/07-next-session-plan.md`):
+**Sub-agent task list** (from `docs/build-process/07-next-session-plan.md`):
 
 | # | Task | Depends on |
 |---|---|---|
@@ -123,7 +123,7 @@ Commit STATUS.md with a clear message. Other chats `git pull` to see your update
 
 ## What "done" looks like for Chat A
 
-Per `docs/05-build-plan.md` Definition of Done — MVP:
+Per `docs/build-process/05-build-plan.md` Definition of Done — MVP:
 - [ ] Public URL live on Hetzner and reachable
 - [ ] Can create new quote from notes (happy path)
 - [ ] Agent generates draft with all components (scope, line items, ambiguities, proposal markdown, total)
@@ -137,7 +137,7 @@ Per `docs/05-build-plan.md` Definition of Done — MVP:
 - [ ] README + `.env.example` complete
 - [ ] GitHub commit history is real (not one mega-commit)
 
-After done: record the Loom (≤5 min) per `docs/05-build-plan.md` Phase 10. Submission: GitHub link + deployed URL + Loom + strategy.md.
+After done: record the Loom (≤5 min) per `docs/build-process/05-build-plan.md` Phase 10. Submission: GitHub link + deployed URL + Loom + strategy.md.
 
 ---
 

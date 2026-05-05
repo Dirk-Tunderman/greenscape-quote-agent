@@ -26,10 +26,10 @@ AI quote drafting agent for a fictional Phoenix hardscape contractor — submitt
 Load the standard block from `~/Desktop/system/SESSION-START.md`. Then, before doing anything in this directory:
 
 1. `git pull`
-2. Read `STATUS.md` — live multi-chat coordination dashboard
+2. Read `docs/build-process/STATUS.md` — live multi-chat coordination dashboard
 3. Read `docs/11-current-state.md` — canonical "what works today" (overrides docs 00-10 if disagreements)
 4. Read `LEARNING.md` — captured lessons, apply them
-5. If picking up a specific role: read the matching prompt in `prompts/chat-{a,b,c}.md`
+5. If picking up a specific role: read the matching prompt in `docs/build-process/prompts/chat-{a,b,c}.md`
 
 ---
 
@@ -39,7 +39,7 @@ Load the standard block from `~/Desktop/system/SESSION-START.md`. Then, before d
 
 - **Anthropic Claude SDK** — Sonnet 4.5 (generation skills) + Haiku 4.5 (classification/validation). 5-skill chain in `lib/skills/`
 - **Supabase** — Postgres (`greenscape` schema, RLS, service-role from API) + Storage (PDFs). Shared instance with SchilderGroei + Lead System
-- **Resend** — outbound customer email
+- **Deepgram** — Nova-3 audio transcription (`POST /api/transcribe`)
 - **Hetzner Server 1** (`157.90.124.14`) — mixed-use server. Next.js standalone behind Caddy + systemd
 - **Cloudflare** — DNS for `quote-agent.tunderman.cc`
 
@@ -59,7 +59,7 @@ Load the standard block from `~/Desktop/system/SESSION-START.md`. Then, before d
 
 ### Foundation references
 
-N/A — this is a fictional-client take-home, not Tunderman content. The 9-section proposal template + voice spec is industry-anchored (not Tunderman-brand) and lives in `docs/06-assumptions.md` + `docs/10-industry-research.md`.
+N/A — this is a fictional-client take-home, not Tunderman content. The 9-section proposal template + voice spec is industry-anchored (not Tunderman-brand) and lives in `docs/06-assumptions.md` + `docs/build-process/10-industry-research.md`.
 
 ### Related projects
 
@@ -71,18 +71,20 @@ Standalone — no in-system dependencies. The Hetzner Server 1 conventions are i
 
 ### Key files
 
-- `STATUS.md` — live multi-chat coordination dashboard (Chat A primary writer; B/C update own rows)
+- `docs/build-process/STATUS.md` — live multi-chat coordination dashboard (Chat A primary writer; B/C update own rows)
 - `strategy.md` — L&S Part 1 deliverable (top 5 AI agents ranked with doc-anchored math)
+- `REVIEWER.md` — live walkthrough doc for the L&S reviewer
+- `docs/README.md` — reviewer doc index (curated set + build-process trail)
 - `docs/11-current-state.md` — canonical WHAT the app does today (source of truth)
-- `docs/09-decision-log.md` — every key decision + reasoning (do NOT undo without explicit OK)
-- `docs/10-industry-research.md` — industry-validated assumptions (D26-D30 came from this)
+- `docs/build-process/09-decision-log.md` — every key decision + reasoning (do NOT undo without explicit OK)
+- `docs/build-process/10-industry-research.md` — industry-validated assumptions (D26-D30 came from this)
 - `lib/orchestrator.ts` — agent chain entry point with retry-on-validate-fail
-- `lib/skills/*.ts` — 5 LLM skills: extract_scope, match_pricing, flag_ambiguity, generate_proposal, validate_output
+- `lib/skills/*.ts` — 6 LLM skills: check_input_relevance, extract_scope, match_pricing, flag_ambiguity, generate_proposal, validate_output
 - `lib/pdf/template.tsx` — branded react-pdf template (8 sections in production)
-- `app/api/` — 5 routes: `/agent/draft`, `/quotes`, `/quotes/[id]`, `/quotes/[id]/send`, `/line-items`
+- `app/api/` — 9 routes: `/agent/draft`, `/quotes`, `/quotes/[id]`, `/quotes/[id]/send`, `/customers/[id]`, `/line-items`, `/line-items/[id]`, `/transcribe`
 - `app/quotes/`, `app/admin/`, `components/` — frontend (Chat B's territory)
-- `supabase/migrations/` — 3 SQL migrations, applied to live DB
-- `prompts/chat-{a,b,c}.md` — copy-paste prompts for spawning sub-chats with full onboarding
+- `supabase/migrations/` — 5 SQL migrations, applied to live DB
+- `docs/build-process/prompts/chat-{a,b,c}.md` — copy-paste prompts for spawning sub-chats with full onboarding
 - `scripts/{deploy,teardown}.sh` — operational
 
 ### Commands
