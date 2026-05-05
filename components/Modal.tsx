@@ -4,12 +4,18 @@
  * Locks body scroll while open. Used by ApproveBar (send confirmation)
  * and AuditLogModal. Add aria-labelledby / aria-modal automatically.
  *
- * NOT a portal — renders in-tree. Adequate for the single-modal-at-a-time
- * usage here; promote to a portal if we ever need nested modals.
+ * Rendered via createPortal to document.body. This is required, not
+ * decorative — when the trigger button lives inside an element with
+ * `backdrop-filter` (e.g. the sticky bottom bar on /quotes/[id]),
+ * `backdrop-filter` creates a containing block for its fixed-positioned
+ * descendants per the CSS spec. An in-tree modal would then be sized to
+ * the sticky bar (~80px tall) instead of the viewport. The portal escapes
+ * that containing block so `fixed inset-0` always means "the viewport".
  */
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export function Modal({
   open,
@@ -27,6 +33,12 @@ export function Modal({
   size?: "md" | "lg" | "xl";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Portal target needs to be resolved client-side; SSR has no document.
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -41,12 +53,12 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const sizeClass =
     size === "xl" ? "max-w-4xl" : size === "lg" ? "max-w-3xl" : "max-w-2xl";
 
-  return (
+  const modal = (
     <div
       role="dialog"
       aria-modal="true"
@@ -86,4 +98,6 @@ export function Modal({
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
