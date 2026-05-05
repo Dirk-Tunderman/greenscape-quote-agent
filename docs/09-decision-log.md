@@ -311,4 +311,19 @@ These decisions came after the initial mock-backed deploy went live and the user
 1. Category drives both the on-screen group sections AND the PDF section ordering AND the `match_pricing` system prompt's hardcoded `CATEGORIES` array — adding a new category requires aligned code changes anyway
 2. The 9 existing categories cover Marcus's documented work areas (line 18 of onboarding) — new categories would be edge cases
 
-**Phase 2 path** for new categories: convert `line_item_category` enum → text with a registry table; update the agent's system prompt to read categories from the registry at runtime. Documented in `docs/15-future-extensions.md`.
+**Phase 2 path** for new categories: convert `line_item_category` enum → text with a registry table; update the agent's system prompt to read categories from the registry at runtime. Documented in `docs/15-future-extensions.md`. (Update: actually shipped — see D39.)
+
+### D39 · Category column converted from enum to text; categories fetched at agent runtime
+
+**Why:** User review caught that the catalog page was still read-only and that "any items or categories" should be addable. D38 shipped item-add via API; D39 ships the matching UI AND removes the enum constraint that blocked new categories.
+
+**What we shipped:**
+- Migration `20260505_005_category_enum_to_text.sql`: `ALTER TABLE greenscape.line_items ALTER COLUMN category TYPE text`; CHECK constraint enforces `length(trim(category)) >= 2`; old `greenscape.line_item_category` enum dropped.
+- `lib/skills/match_pricing.ts`: at the start of every `matchPricing()` call, run `getCategories()` to fetch distinct active categories from the live DB. Build the system prompt's "AVAILABLE CATEGORIES" section AND the `lookup_line_items` tool's `enum` constraint dynamically. Net effect: a category added via UI at 10:00 is searchable by the agent at 10:01, no code/prompt change.
+- `app/api/line-items` POST: accepts any string for `category`; snake_case-normalizes ("Outdoor Lighting" → "outdoor_lighting") so categories stay consistent with the seeded set and UI grouping behaves predictably.
+- `app/admin/line-items/AddLineItemForm.tsx` (new client component): combobox with existing categories + "+ New category…" sentinel option that reveals a text input. Posts to `/api/line-items`, calls `router.refresh()` on success.
+- `lib/types.ts`: `ItemCategory` is now `string` (with `SEEDED_CATEGORIES` documented as the original 9 for reference). The literal union was load-bearing only at compile time; runtime accepts any string.
+
+**Considered:** Keeping the enum + a separate `categories` registry table. Rejected as over-engineered for the shipped surface: a single CHECK constraint + dynamic agent prompt is simpler and the UI already enforces non-empty + shape via normalization.
+
+**Live verification (2026-05-05):** POSTed a new "outdoor lighting" category with a Path light bollard line item. Returned 201; `SELECT DISTINCT category FROM greenscape.line_items` confirms `outdoor_lighting` is present alongside the original 9. Next agent run will see it.

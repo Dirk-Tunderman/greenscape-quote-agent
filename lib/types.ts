@@ -20,16 +20,23 @@ export type LineItemUnit =
   | "hour"
   | "lump_sum";
 
-export type ItemCategory =
-  | "patio"
-  | "pergola"
-  | "fire_pit"
-  | "water_feature"
-  | "artificial_turf"
-  | "irrigation"
-  | "outdoor_kitchen"
-  | "retaining_wall"
-  | "universal";
+// As of D39, category is plain text in the DB so Marcus can add new
+// categories at runtime via POST /api/line-items. The literal union below
+// is kept ONLY as documentation of the seeded set — at runtime any
+// non-empty string is accepted.
+export type ItemCategory = string;
+
+export const SEEDED_CATEGORIES = [
+  "patio",
+  "pergola",
+  "fire_pit",
+  "water_feature",
+  "artificial_turf",
+  "irrigation",
+  "outdoor_kitchen",
+  "retaining_wall",
+  "universal",
+] as const;
 
 export interface Customer {
   id: string;

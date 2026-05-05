@@ -19,26 +19,29 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/db/supabase";
-import type { ItemCategory, LineItem, LineItemUnit } from "@/lib/types";
+import type { LineItem, LineItemUnit } from "@/lib/types";
 
 export const runtime = "nodejs";
 
-const CATEGORIES: ItemCategory[] = [
-  "patio",
-  "pergola",
-  "fire_pit",
-  "water_feature",
-  "artificial_turf",
-  "irrigation",
-  "outdoor_kitchen",
-  "retaining_wall",
-  "universal",
-];
-
 const UNITS: LineItemUnit[] = ["sq_ft", "linear_ft", "each", "zone", "hour", "lump_sum"];
 
+// Category is free-form text post-D39 so Marcus can add new categories
+// at runtime. We snake_case-normalize on insert (e.g., "Outdoor Lighting"
+// → "outdoor_lighting") so categories stay consistent with the seeded set
+// and the UI grouping behaves predictably.
 const CreateLineItemSchema = z.object({
-  category: z.enum([...CATEGORIES] as [ItemCategory, ...ItemCategory[]]),
+  category: z
+    .string()
+    .trim()
+    .min(2, "Category is required")
+    .max(40, "Category too long")
+    .transform((s) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, ""),
+    )
+    .refine((s) => s.length >= 2, "Category is required"),
   name: z.string().trim().min(2, "Name is required"),
   description: z.string().trim().min(2, "Description is required"),
   unit: z.enum([...UNITS] as [LineItemUnit, ...LineItemUnit[]]),

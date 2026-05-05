@@ -3,23 +3,30 @@ import { Card } from "@/components/Card";
 import { listLineItems } from "@/data/store";
 import { formatCurrency, titleCase } from "@/lib/utils";
 import type { LineItem } from "@/lib/types";
+import { AddLineItemForm } from "./AddLineItemForm";
 
 export const metadata = {
   title: "Catalog · Greenscape Quote Agent",
 };
 
+// Always re-fetch after a new item is added (router.refresh() in the form).
+export const dynamic = "force-dynamic";
+
 export default async function LineItemsPage() {
   const items = await listLineItems();
   const grouped = groupByCategory(items);
   const totalCount = items.length;
+  const existingCategories = grouped.map((g) => g.category);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <PageHeader
         eyebrow="Pricing catalog"
         title="Line items"
-        description={`${totalCount} items across ${grouped.length} categories. Read-only — edits land in Phase 2.`}
+        description={`${totalCount} items across ${grouped.length} categories. New items become available to the agent on the next quote.`}
       />
+
+      <AddLineItemForm existingCategories={existingCategories} />
 
       <div className="space-y-10">
         {grouped.map(({ category, items: catItems }) => (

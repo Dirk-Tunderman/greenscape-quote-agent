@@ -13,35 +13,15 @@ Grouped by horizon: **Phase 2 (week 2-4)**, **Phase 3 (month 2-3)**, **Real enga
 
 ## Phase 2 — Week 2-4 (post-MVP, building on what's live)
 
-### F1 · UI to add line items to catalog (backend ready, UI pending)
+### ~~F1 · UI to add line items to catalog~~ ✅ SHIPPED 2026-05-05 (D39)
 
-**What:** Form on `/admin/line-items` for inserting new catalog items. Backend already shipped: `POST /api/line-items` accepts `{category, name, description, unit, unit_price, item_type?}` and the item is immediately available to the agent's next `match_pricing` call (the tool queries the live DB).
+**Status:** Done. Form lives on `/admin/line-items`: combobox for category (existing + "+ New category…"), fields for name/description/unit/unit_price/item_type. Posts to `POST /api/line-items`, refreshes the list. Newly added items are immediately searchable by the agent on the next quote.
 
-**Why deferred from MVP:** Backend was small and shipped; UI form is Chat B territory and didn't make the cut. Decision D38.
+### ~~F2 · Add new categories (not just new items)~~ ✅ SHIPPED 2026-05-05 (D39)
 
-**Effort:** ~30 min for a simple inline form on the catalog page.
+**Status:** Done. Migration `20260505_005_category_enum_to_text.sql` converted `line_items.category` from a Postgres enum to text. The agent's `match_pricing` skill now calls `getCategories()` at the start of every run to fetch the live distinct-category list, building the system prompt's "AVAILABLE CATEGORIES" section AND the `lookup_line_items` tool's enum constraint dynamically. Net effect: any category added via the UI at 10:00 is searchable by the agent at 10:01 — no code/prompt change.
 
-**Ship:**
-- Add an "+ Add line item" button below the table
-- Modal or inline form: category dropdown (9 existing enum values), name, description, unit dropdown, unit price, item_type (default "fixed")
-- POST to `/api/line-items`, refresh the list on success
-- Toast confirmation
-
-### F2 · Add new categories (not just new items)
-
-**What:** Allow Marcus to add a brand-new category (e.g., "outdoor lighting", "pool decking") without a code change.
-
-**Why deferred:** Category is a Postgres enum (`greenscape.line_item_category`). Adding a value requires a migration. AND `match_pricing.ts` has a hardcoded `CATEGORIES` array in its system prompt + tool input schema. AND the proposal generator + PDF template iterate over a known set of categories for grouping.
-
-**Effort:** ~3-4 hours.
-
-**Ship:**
-- Schema migration: convert `line_item_category` enum → `text` with a CHECK constraint pulling from a new `categories` table, OR drop the enum and keep `category` as text with a registry table
-- New `categories` table: `(slug, label, display_order)` — single source of truth
-- Update `match_pricing` system prompt to read categories from DB at runtime (cache for 1 min)
-- Update PDF template to iterate over runtime categories
-- New `POST /api/categories` endpoint
-- UI form on `/admin/categories`
+The "registry table" idea from the original deferred plan turned out to be over-engineered: a CHECK constraint + dynamic agent prompt + UI normalization (snake_case) is simpler. PDF template iterates over whatever categories appear in the priced items so it adapts automatically.
 
 ### F3 · Voice memo input + Deepgram transcription
 

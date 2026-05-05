@@ -39,22 +39,37 @@ import type {
   ScopeItem,
 } from "@/lib/types";
 
-const CATEGORIES: ItemCategory[] = [
-  "patio",
-  "pergola",
-  "fire_pit",
-  "water_feature",
-  "artificial_turf",
-  "irrigation",
-  "outdoor_kitchen",
-  "retaining_wall",
-  "universal",
-];
+/**
+ * Fetch the live list of distinct categories from line_items.
+ * Categories are now stored as text (D39) so Marcus can add new ones
+ * at runtime via POST /api/line-items — they show up here automatically
+ * on the next quote.
+ */
+async function getCategories(): Promise<string[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("line_items")
+    .select("category")
+    .eq("active", true);
+  if (error) throw new Error(`getCategories failed: ${error.message}`);
+  const set = new Set<string>();
+  for (const row of data ?? []) {
+    const c = (row as { category: string }).category;
+    if (c) set.add(c);
+  }
+  // Always include "universal" so the agent can map permits/cleanup even if
+  // no universal items have been added yet (defensive — seed has them).
+  set.add("universal");
+  return [...set].sort();
+}
 
 const PricedItemSchema = z.object({
   line_item_id: z.string().uuid(),
   line_item_name: z.string(),
-  category: z.enum([...CATEGORIES] as [ItemCategory, ...ItemCategory[]]),
+  // Free-form string post-D39; validation against the live category list
+  // happens via the catalog-id verification (every priced_item.line_item_id
+  // must be a real row, which implicitly means its category is real too).
+  category: z.string().min(2),
   unit: z.enum(["sq_ft", "linear_ft", "each", "zone", "hour", "lump_sum"]),
   quantity: z.number().positive(),
   unit_price: z.number().nonnegative(),
@@ -81,16 +96,20 @@ const OutputSchema = z.object({
   custom_item_requests: z.array(CustomItemRequestSchema).default([]),
 });
 
-const SYSTEM = `You are pricing a quote for Greenscape Pro using their priced catalog. You will be given an array of structured scope items. For each one, call the lookup_line_items tool to find matching catalog rows, then return a JSON object with priced_items (and optionally custom_item_requests for things not in the catalog).
+function buildSystem(categories: string[]): string {
+  return `You are pricing a quote for Greenscape Pro using their priced catalog. You will be given an array of structured scope items. For each one, call the lookup_line_items tool to find matching catalog rows, then return a JSON object with priced_items (and optionally custom_item_requests for things not in the catalog).
+
+AVAILABLE CATEGORIES (live from the catalog):
+${categories.map((c) => `- ${c}`).join("\n")}
 
 CRITICAL RULES:
-1. You MUST call lookup_line_items at least once for each scope item that has a category other than "other".
+1. You MUST call lookup_line_items at least once for each scope item that has a category other than "other". Pick the best-matching category from the AVAILABLE CATEGORIES list above.
 2. Return ONLY catalog line_item_ids you actually saw from a tool result. NEVER invent UUIDs or item names.
 3. line_total MUST equal quantity * unit_price exactly.
 4. If quantity is missing in the scope item but the catalog item is an "each" or "lump_sum" unit, default to quantity=1.
 5. If a scope item references something not in the catalog (e.g., a custom feature), put it in custom_item_requests with a clear description; do NOT fake a price.
 6. For each pour-of-base-prep, drainage, demo, or supporting item that is part of a project step, include the corresponding catalog item with the same quantity as the parent step (e.g., "caliche-resistant base prep" matches the patio sq_ft).
-7. Always include "Phoenix permit pull" (lump_sum) and "Final cleanup + haul" (lump_sum) once per project.
+7. Always include "Phoenix permit pull" (lump_sum) and "Final cleanup + haul" (lump_sum) once per project — both live in the "universal" category.
 8. ALWAYS finish by emitting the final JSON object with no markdown fences, no commentary.
 
 OUTPUT SHAPE:
@@ -110,30 +129,34 @@ OUTPUT SHAPE:
   ],
   "custom_item_requests": []
 }`;
+}
 
-const TOOLS: Anthropic.Tool[] = [
-  {
-    name: "lookup_line_items",
-    description:
-      "Search the priced catalog for line items in a given category, fuzzy-matching on name + description. Returns up to 10 candidates with id, name, description, unit, unit_price.",
-    input_schema: {
-      type: "object",
-      properties: {
-        category: {
-          type: "string",
-          enum: CATEGORIES,
-          description: "Category to search within. Use 'universal' for permits, cleanup, PM overhead.",
+function buildTools(categories: string[]): Anthropic.Tool[] {
+  return [
+    {
+      name: "lookup_line_items",
+      description:
+        "Search the priced catalog for line items in a given category, fuzzy-matching on name + description. Returns up to 10 candidates with id, name, description, unit, unit_price.",
+      input_schema: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: categories,
+            description:
+              "Category to search within. Pick from the AVAILABLE CATEGORIES list in the system prompt. Use 'universal' for permits, cleanup, PM overhead.",
+          },
+          search_terms: {
+            type: "string",
+            description:
+              "Free-text search (matches against name and description). E.g. 'travertine' or 'cedar pergola'.",
+          },
         },
-        search_terms: {
-          type: "string",
-          description:
-            "Free-text search (matches against name and description). E.g. 'travertine' or 'cedar pergola'.",
-        },
+        required: ["category", "search_terms"],
       },
-      required: ["category", "search_terms"],
     },
-  },
-];
+  ];
+}
 
 interface CatalogMatch {
   id: string;
@@ -151,7 +174,7 @@ async function lookupLineItems(category: string, search: string): Promise<Catalo
   const { data, error } = await supabase
     .from("line_items")
     .select("id,name,description,unit,unit_price")
-    .eq("category", category as ItemCategory)
+    .eq("category", category)
     .eq("active", true)
     .or(`name.ilike.${term},description.ilike.${term}`)
     .limit(10);
@@ -166,7 +189,7 @@ async function lookupLineItems(category: string, search: string): Promise<Catalo
   const fallback = await supabase
     .from("line_items")
     .select("id,name,description,unit,unit_price")
-    .eq("category", category as ItemCategory)
+    .eq("category", category)
     .eq("active", true)
     .limit(10);
   if (fallback.error) throw new Error(`lookup_line_items fallback failed: ${fallback.error.message}`);
@@ -186,6 +209,12 @@ export async function matchPricing(
   input: MatchPricingInput,
   audit: AuditContext,
 ): Promise<MatchPricingResult> {
+  // Fetch live categories from the catalog at run time so newly-added
+  // categories (D39) are immediately available to the agent.
+  const categories = await getCategories();
+  const SYSTEM = buildSystem(categories);
+  const TOOLS = buildTools(categories);
+
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
