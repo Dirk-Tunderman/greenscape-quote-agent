@@ -1,14 +1,15 @@
 /**
  * Resend client + transactional send for proposal emails.
  *
+ * DEPRECATED for v1 demo (Phase 2 candidate) — Marcus finalizes the PDF and
+ * sends it to customers himself. The customer-facing email step was cut to
+ * keep the human-in-the-loop control crisp; this function is retained as
+ * working code for when the workflow expands. No live route imports it.
+ *
  * From: `RESEND_FROM_EMAIL` (verified domain notifications.tunderman.io).
  * Subject: "Your Greenscape Pro proposal — {proposalNumber}"
  * Body: short plain-text in Marcus's voice (no HTML — keeps deliverability simple)
  * Attachment: the rendered PDF buffer
- *
- * Errors propagate to the calling route (POST /api/quotes/[id]/send), which
- * reverts quote.status to its pre-send value. Resend errors typically
- * indicate verified-domain or rate-limit issues.
  */
 
 import { Resend } from "resend";

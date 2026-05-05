@@ -100,7 +100,7 @@ export default async function QuoteDetailPage({
 
       {quote.status === "sent" || quote.status === "accepted" ? (
         <div className="border-l-4 border-success-green bg-success-green/10 px-4 py-3 rounded-r text-sm">
-          Sent to <span className="font-medium">{customer.email}</span> on{" "}
+          Finalized on{" "}
           <span className="text-saguaro-black">{formatDateTime(quote.sent_at)}</span>
           {quote.pdf_url ? (
             <>
@@ -255,7 +255,7 @@ export default async function QuoteDetailPage({
       <Card>
         <CardHeader
           title="Proposal draft"
-          subtitle={readOnly ? "Read-only — proposal has been sent." : "Edit the markdown directly. The PDF generates from this."}
+          subtitle={readOnly ? "Read-only — proposal has been finalized." : "Each section is editable. Click Save proposal to commit your edits."}
         />
         <CardBody>
           <ProposalEditor

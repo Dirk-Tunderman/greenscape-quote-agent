@@ -1,20 +1,24 @@
 /**
- * POST /api/quotes/[id]/send — render PDF, upload, email, mark sent.
+ * POST /api/quotes/[id]/send — render PDF, upload to Storage, return signed URL.
+ *
+ * Email send is intentionally OFF in this iteration (see prompts/chat-a-v2-wireup.md
+ * Task A2). The route name is kept for backwards-compat; the work it does
+ * is now "finalize → store → return signed URL". The frontend opens that
+ * URL in a new tab so Marcus can review/save/forward the PDF himself.
+ *
+ * The Resend wrapper at lib/email.ts is kept in the repo (working code,
+ * deferred to Phase 2) but no live route invokes it.
  *
  * Pipeline:
- *   1. Validate quote is in `draft_ready` or `validation_failed` status
- *      (sent quotes 409; drafting/sending also 409 — wrong state)
- *   2. Set status='sending' (lock against double-send)
- *   3. Render branded PDF from line_items + customer (lib/pdf/template.tsx)
- *   4. Ensure greenscape-quotes Storage bucket exists; upload PDF (upsert)
- *   5. Get 30-day signed URL for the PDF
- *   6. Send email via Resend with PDF attached (lib/email.ts)
- *   7. Update quote: status='sent', pdf_url, sent_at
+ *   1. Status guard — only `draft_ready` or `validation_failed` advance
+ *      (sent → 409). `sending` is the in-flight lock.
+ *   2. Render branded PDF from line_items + customer (lib/pdf/template.tsx)
+ *   3. Upload to Supabase Storage (greenscape-quotes bucket, upsert)
+ *   4. Get a 30-day signed URL
+ *   5. Update quote: status=sent, pdf_url, sent_at (we keep the `sent`
+ *      enum; semantically it now means "finalized & ready to download")
  *
- * Failure paths revert status to its pre-send value:
- *   - PDF render → 500
- *   - Storage upload → 500
- *   - Resend send → 500 (pdf_url is preserved)
+ * Failure paths revert status to its pre-render value.
  *
  * Returns: { quote, pdf_url, sent_at }
  */
@@ -22,7 +26,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/db/supabase";
 import { renderProposalPdf } from "@/lib/pdf/render";
-import { sendQuoteEmail } from "@/lib/email";
 import type { Customer, Quote, QuoteLineItem } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -44,11 +47,11 @@ export async function POST(_req: Request, ctx: ParamCtx) {
   const q = quote as Quote;
 
   if (q.status === "sent") {
-    return NextResponse.json({ error: "Quote already sent" }, { status: 409 });
+    return NextResponse.json({ error: "Quote already finalized" }, { status: 409 });
   }
   if (q.status !== "draft_ready" && q.status !== "validation_failed") {
     return NextResponse.json(
-      { error: `Quote not ready to send (status=${q.status}). Only draft_ready or validation_failed quotes can be sent (after Marcus's edits).` },
+      { error: `Quote not ready to finalize (status=${q.status}). Only draft_ready or validation_failed quotes can be finalized.` },
       { status: 409 },
     );
   }
@@ -62,7 +65,7 @@ export async function POST(_req: Request, ctx: ParamCtx) {
   const c = customer as Customer;
   const lineItems = (lines ?? []) as QuoteLineItem[];
 
-  // Mark sending
+  // Mark in-flight (lock against double-finalize)
   await supabase.from("quotes").update({ status: "sending" }).eq("id", id);
 
   let pdfBuffer: Buffer;
@@ -102,24 +105,6 @@ export async function POST(_req: Request, ctx: ParamCtx) {
   const { data: signed } = await supabase.storage.from(bucketName).createSignedUrl(path, 60 * 60 * 24 * 30);
   const pdfUrl = signed?.signedUrl ?? path;
 
-  // Send email
-  try {
-    await sendQuoteEmail({
-      to: c.email,
-      customerName: c.name,
-      pdfBuffer,
-      pdfFilename,
-      proposalNumber,
-      totalUsd: Number(q.total_amount),
-    });
-  } catch (err) {
-    await supabase.from("quotes").update({ status: q.status, pdf_url: pdfUrl }).eq("id", id);
-    return NextResponse.json(
-      { error: "Email send failed", detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
-  }
-
   const sentAt = new Date().toISOString();
   const { data: updated, error: updErr } = await supabase
     .from("quotes")
@@ -128,7 +113,7 @@ export async function POST(_req: Request, ctx: ParamCtx) {
     .select("*")
     .single();
   if (updErr || !updated) {
-    return NextResponse.json({ error: "send recorded but quote update failed", detail: updErr?.message }, { status: 500 });
+    return NextResponse.json({ error: "finalize recorded but quote update failed", detail: updErr?.message }, { status: 500 });
   }
 
   return NextResponse.json({ quote: updated, pdf_url: pdfUrl, sent_at: sentAt });

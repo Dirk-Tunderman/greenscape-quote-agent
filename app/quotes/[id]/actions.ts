@@ -1,23 +1,21 @@
 /**
  * Server actions for /quotes/[id].
  *
- * These exist (instead of /api/ routes) so Chat A keeps full ownership of
- * app/api/. Each action is a thin wrapper over data/store.ts that:
- *   1. Mutates state via the store
- *   2. Revalidates affected paths so list + detail re-fetch
- *   3. Returns a discriminated union { ok: true, ... } | { ok: false, error }
- *      so the caller can render error state without a try/catch.
+ * Thin wrappers over data/store.ts (which calls the real /api/* endpoints).
+ * Each action mutates state, revalidates affected paths, and returns a
+ * discriminated union so the caller can render error state without
+ * try/catch.
  *
- * approveAndSendAction is the exception — it redirects on success. The thrown
- * NEXT_REDIRECT is caught in the client component (ApproveBar) and ignored.
+ * approveAndDownloadAction is special — it returns the signed PDF URL so
+ * the client can window.open() the download. Email send is deprecated;
+ * see lib/email.ts for the dormant Resend code.
  */
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
   patchQuote,
-  sendQuote,
+  downloadPdf,
   setOutcome,
   type PatchLineItemInput,
 } from "@/data/store";
@@ -34,12 +32,12 @@ export async function updateLineItemsAction(
   patches: UpdateLineItemPayload[]
 ): Promise<{ ok: true; total: number } | { ok: false; error: string }> {
   try {
-    const detail = await patchQuote(quoteId, {
+    const { total } = await patchQuote(quoteId, {
       line_items: patches as PatchLineItemInput[],
     });
     revalidatePath(`/quotes/${quoteId}`);
     revalidatePath("/quotes");
-    return { ok: true, total: detail.quote.total_amount };
+    return { ok: true, total };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Update failed" };
   }
@@ -58,13 +56,17 @@ export async function updateProposalAction(
   }
 }
 
-export async function approveAndSendAction(
+export async function approveAndDownloadAction(
   quoteId: string
-): Promise<never> {
-  await sendQuote(quoteId);
-  revalidatePath(`/quotes/${quoteId}`);
-  revalidatePath("/quotes");
-  redirect(`/quotes?sent=${quoteId}`);
+): Promise<{ ok: true; pdf_url: string; sent_at: string } | { ok: false; error: string }> {
+  try {
+    const result = await downloadPdf(quoteId);
+    revalidatePath(`/quotes/${quoteId}`);
+    revalidatePath("/quotes");
+    return { ok: true, pdf_url: result.pdf_url, sent_at: result.sent_at };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Download failed" };
+  }
 }
 
 export async function setOutcomeAction(
