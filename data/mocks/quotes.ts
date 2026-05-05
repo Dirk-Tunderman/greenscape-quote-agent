@@ -1,3 +1,22 @@
+/**
+ * data/mocks/quotes.ts — fixture quotes for the demo.
+ *
+ * Five quotes covering every UI state Marcus can see:
+ *   draft_ready · sent · accepted · lost · validation_failed
+ *
+ * Each MockQuoteSeed becomes a fully-built QuoteDetail (customer + line
+ * items + scope artifacts + ambiguities + validation result + audit log)
+ * via the build helpers below. Line items reference the catalog by NAME
+ * (findItemByName) so we don't hand-author fragile li_NNN ids.
+ *
+ * Mock proposal markdown follows the 9-section template from D29 (industry
+ * research): Greeting · Overview · Scope+Pricing · Exclusions · Timeline ·
+ * Warranty · Terms · Signature · License & Insurance.
+ *
+ * To add a new fixture: append a MockQuoteSeed and the build loop at the
+ * bottom does the rest. Keep the status spread covering every enum so the
+ * UI states stay demoable.
+ */
 import type {
   AuditLogEntry,
   Customer,

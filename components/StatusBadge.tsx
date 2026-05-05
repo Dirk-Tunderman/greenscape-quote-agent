@@ -1,3 +1,11 @@
+/**
+ * StatusBadge — pill with semantic color, dot, and text label.
+ *
+ * Color is never the only signal (WCAG): the dot is decorative,
+ * the label carries the meaning. Text matches the status enum from
+ * lib/types.ts; if you add a status there, add a STYLES entry here
+ * — TypeScript will fail loudly until you do.
+ */
 import { cn } from "@/lib/utils";
 import type { QuoteStatus } from "@/lib/types";
 

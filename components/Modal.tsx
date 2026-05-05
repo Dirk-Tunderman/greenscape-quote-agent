@@ -1,3 +1,12 @@
+/**
+ * Modal — backdrop + container with Esc + backdrop-click close.
+ *
+ * Locks body scroll while open. Used by ApproveBar (send confirmation)
+ * and AuditLogModal. Add aria-labelledby / aria-modal automatically.
+ *
+ * NOT a portal — renders in-tree. Adequate for the single-modal-at-a-time
+ * usage here; promote to a portal if we ever need nested modals.
+ */
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";

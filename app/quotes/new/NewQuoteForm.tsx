@@ -1,3 +1,13 @@
+/**
+ * NewQuoteForm — uncontrolled form bound to createDraftAction via useActionState.
+ *
+ * Why uncontrolled (defaultValue, not value): zero re-render cost while typing,
+ * and the action receives a FormData snapshot on submit. State is only used
+ * to surface field errors and re-populate values after a validation failure.
+ *
+ * SubmitButton is split out so useFormStatus picks up the pending state from
+ * the enclosing form context.
+ */
 "use client";
 
 import { useActionState } from "react";

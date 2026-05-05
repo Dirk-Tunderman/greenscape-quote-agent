@@ -1,3 +1,20 @@
+/**
+ * LineItemsTable — inline-edit grid for quote line items.
+ *
+ * Pattern: optimistic-UI + server action.
+ *   1. User clicks a price/qty cell → input renders in place (NumberCell)
+ *   2. Blur or Enter commits the edit
+ *   3. Local state updates immediately (line_total recomputed)
+ *   4. updateLineItemsAction fires in a transition → server persists
+ *   5. On error, error state is shown but the optimistic state stays so
+ *      the user can retry without losing typing
+ *
+ * Items are grouped by category at render time with per-category subtotals.
+ * Render-flag (>$30K) appears in tfoot.
+ *
+ * `readOnly=true` (sent/accepted/rejected/lost) renders cells as plain text
+ * — no edit affordance, no NumberCell input.
+ */
 "use client";
 
 import { useMemo, useState, useTransition } from "react";

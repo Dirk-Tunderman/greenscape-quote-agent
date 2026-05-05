@@ -1,3 +1,16 @@
+/**
+ * Server actions for /quotes/[id].
+ *
+ * These exist (instead of /api/ routes) so Chat A keeps full ownership of
+ * app/api/. Each action is a thin wrapper over data/store.ts that:
+ *   1. Mutates state via the store
+ *   2. Revalidates affected paths so list + detail re-fetch
+ *   3. Returns a discriminated union { ok: true, ... } | { ok: false, error }
+ *      so the caller can render error state without a try/catch.
+ *
+ * approveAndSendAction is the exception — it redirects on success. The thrown
+ * NEXT_REDIRECT is caught in the client component (ApproveBar) and ignored.
+ */
 "use server";
 
 import { redirect } from "next/navigation";

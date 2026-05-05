@@ -1,3 +1,15 @@
+/**
+ * createDraftAction — server action behind /quotes/new.
+ *
+ * Validates form input with zod, calls store.createDraft (which today builds
+ * a synthetic QuoteDetail from a mock seed; tomorrow POSTs to
+ * /api/agent/draft and waits for the agent chain to return a quote_id),
+ * then redirects to /quotes/[id].
+ *
+ * On validation failure, returns { fieldErrors, values } so NewQuoteForm
+ * can re-render with inline errors and preserved input. The form uses
+ * useActionState — see app/quotes/new/NewQuoteForm.tsx.
+ */
 "use server";
 
 import { redirect } from "next/navigation";

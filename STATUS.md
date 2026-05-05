@@ -100,9 +100,10 @@ Phase progression (from `docs/05-build-plan.md`):
   - **Server actions** for mutations: `createDraftAction`, `updateLineItemsAction`, `updateProposalAction`, `approveAndSendAction`, `setOutcomeAction` — no `/api/` conflicts
   - **Components:** `Brand`, `Nav` (with cumulative cost display), `PageHeader`, `Card`/`CardHeader`/`CardBody`, `Button` (4 variants × 3 sizes), `Field`/`Input`/`Textarea`/`Select`, `StatusBadge` (8 statuses, color + dot + label), `Modal` (Esc + backdrop close), `EmptyState`
   - Verified via Chrome at 1440px and 375px — no console errors on any page; >$30K render flag visible; validation_failed state disables Approve correctly
-- **Currently doing:** committing
+- **Documentation pass (2026-05-05 PM):** wrote `docs/13-frontend-internals.md` (deep-dive: page-by-page anatomy, components catalog, data flow, design-system adherence, edge cases, swap-to-real-API recipe, where-to-look-when troubleshooting matrix). Added top-of-file JSDoc headers to `data/store.ts`, `data/mocks/catalog.ts`, `data/mocks/quotes.ts`, `app/quotes/[id]/page.tsx`, `app/quotes/[id]/LineItemsTable.tsx`, `app/quotes/[id]/actions.ts`, `app/quotes/new/actions.ts`, `app/quotes/new/NewQuoteForm.tsx`, `components/StatusBadge.tsx`, `components/Modal.tsx` — explaining patterns/contracts/seams.
+- **Currently doing:** done — frontend complete, mock-backed, fully documented, ready for handoff or for Chat A's API to be wired in
 - **Blockers:** none
-- **Waiting on:** Chat A's API routes — when ready, swap `data/store.ts` function bodies to `fetch()` against `/api/agent/draft`, `GET/PATCH /api/quotes`, `POST /api/quotes/[id]/send`. Pages don't change.
+- **Waiting on:** Chat A's API routes — when ready, swap `data/store.ts` function bodies to `fetch()` against `/api/agent/draft`, `GET/PATCH /api/quotes`, `POST /api/quotes/[id]/send`. Pages don't change. **Recipe in `docs/13-frontend-internals.md` § "Wiring to backend".**
 
 ### Chat C (Hetzner Deployment) — **DONE · public URL live**
 - **Owns:** server-side prep on `157.90.124.14` (Caddy site block, systemd unit, port assignment)
@@ -148,6 +149,7 @@ Phase progression (from `docs/05-build-plan.md`):
 
 | Date | Chat | Item |
 |---|---|---|
+| 2026-05-05 | Chat B | Documentation pass — wrote `docs/13-frontend-internals.md` (deep-dive frontend ref) + JSDoc headers on 10 key files. Frontend complete: 4 pages live on mocks, swap recipe documented, ready for API wire-in. |
 | 2026-05-05 | Chat A | **END-TO-END LIVE.** 2 integration tests on PROD passed (Patel $15,955 patio+irrigation, Chen $59,000 full backyard with `needs_render:true`). Real Anthropic Sonnet 4.5 + Haiku 4.5 chains, real Supabase DB + Storage, real Resend email send w/ branded PDF attached. Validate-on-fail retry loop verified. Total dev+test Anthropic spend ≈ $0.50. |
 | 2026-05-05 | Chat A | Aligned code with research D26-D30: migration 003 (item_type / payment_schedule / ROC / insurance), 9-section template w/ Exclusions + Warranty + License Block, ROC + payment-schedule-sum validators; build green; **ROC/insurance later stripped per user (kept columns for forward compat)** |
 | 2026-05-05 | Chat A | Backend Phases 0–7: schema + seed SQL · 5 skills + orchestrator (Sonnet 4.5 + Haiku 4.5) · 5 API routes · branded react-pdf · Resend send · audit log + $0.50 cap · `scripts/deploy.sh` |

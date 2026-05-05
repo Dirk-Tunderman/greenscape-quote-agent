@@ -1,11 +1,30 @@
-// Frontend-side data adapter.
-//
-// Today: reads / mutates the in-memory mock fixtures in data/mocks/.
-// Tomorrow (when Chat A's API routes land): swap function bodies to `fetch(...)`
-// against the real endpoints documented in docs/03-architecture.md / prompts/chat-b-frontend.md.
-//
-// Pages and server actions consume this module — they don't import from
-// data/mocks/ directly. That's the seam.
+/**
+ * data/store.ts — frontend-side data adapter (the API seam).
+ *
+ * This is the ONE module pages + server actions read/mutate through. It
+ * exists so that swapping mock fixtures for Chat A's real backend is a
+ * single-file change instead of a sprawl edit across every page.
+ *
+ * Current implementation: in-memory state seeded from data/mocks/, mutated
+ * directly. Module-level state survives across server-component re-renders
+ * within the same Node dev process (enough to demo edits + approvals
+ * without a DB).
+ *
+ * To wire real backend (Chat A's routes already exist at app/api/...):
+ *   - listQuotes()        → GET  /api/quotes?status=...&search=...
+ *   - getQuote(id)        → GET  /api/quotes/[id]
+ *   - listLineItems()     → GET  /api/line-items
+ *   - cumulativeCost()    → derive from listQuotes() OR add a dedicated endpoint
+ *   - createDraft(body)   → POST /api/agent/draft
+ *   - patchQuote(id, ...) → PATCH /api/quotes/[id]
+ *   - sendQuote(id)       → POST /api/quotes/[id]/send
+ *   - setOutcome(...)     → PATCH /api/quotes/[id] (status + outcome_notes)
+ *
+ * The function signatures above are the contract — pages depend on them, not
+ * on the implementation. Keep them stable when swapping.
+ *
+ * See docs/13-frontend-internals.md for the full data-flow diagram.
+ */
 
 import type {
   DraftRequestBody,

@@ -1,7 +1,20 @@
+/**
+ * data/mocks/catalog.ts — synthetic Phoenix-market pricing catalog.
+ *
+ * Used by data/store.ts before Chat A's API is wired in. Chat A's seed SQL
+ * (supabase/migrations/20260505_002_seed_pricing_catalog.sql) is the real
+ * source of truth — keep this file roughly in shape with that, but it does
+ * not need to be a 1:1 mirror.
+ *
+ * Conventions:
+ *   - IDs auto-assigned via next() — DO NOT hand-author "li_NNN" anywhere
+ *     else; quote seeds use findItemByName() so the IDs can drift safely.
+ *   - item_type defaults to "fixed". Allowance / custom are explicit.
+ *   - Categories must match ItemCategory in lib/types.ts.
+ *
+ * See docs/06-assumptions.md for pricing rationale and replaceability map.
+ */
 import type { LineItem } from "@/lib/types";
-
-// Synthetic Phoenix-market pricing catalog per docs/06-assumptions.md.
-// ~80 items across 8 categories + universal. Chat A's seed migration replaces this.
 
 const now = "2026-05-01T10:00:00.000Z";
 const make = (

@@ -1,3 +1,25 @@
+/**
+ * /quotes/[id] — review · edit · approve · audit a single quote.
+ *
+ * Most complex page in the app. This file is a Server Component that fetches
+ * the QuoteDetail and composes ~7 smaller pieces:
+ *
+ *   ValidationPanel ── shown only when validation_failed (with retry hints)
+ *   AmbiguityList   ── flag_ambiguity output, severity-coloured callouts
+ *   LineItemsTable  ── inline-edit cells, optimistic UI, server-action save
+ *   ProposalEditor  ── tabbed preview/markdown editor
+ *   ApproveBar      ── header + sticky-bottom; opens send confirmation modal
+ *   AuditLogModal   ── per-skill cost/duration/tokens/status table
+ *   OutcomePanel    ── shown after sent; records accepted/rejected/lost
+ *
+ * `readOnly` is computed once from quote.status — sent/accepted/rejected/lost
+ * locks all editing surfaces. Keep that as the single rule; don't duplicate
+ * the check inside child components.
+ *
+ * `dynamic = "force-dynamic"` because the in-memory store mutates and we want
+ * fresh reads. Once Chat A's API is wired in, this stays — fetching from a
+ * real DB still benefits from no-store semantics on a per-quote view.
+ */
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
