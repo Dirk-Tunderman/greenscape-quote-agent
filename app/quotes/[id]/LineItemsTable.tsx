@@ -33,6 +33,18 @@ const UNIT_LABEL: Record<LineItemUnit, string> = {
 
 const UNIT_OPTIONS: LineItemUnit[] = ["each", "sq_ft", "linear_ft", "zone", "hour", "lump_sum"];
 
+const CATEGORY_OPTIONS: ItemCategory[] = [
+  "patio",
+  "pergola",
+  "fire_pit",
+  "water_feature",
+  "artificial_turf",
+  "irrigation",
+  "outdoor_kitchen",
+  "retaining_wall",
+  "universal",
+];
+
 function makeBlankItem(quoteId: string): QuoteLineItem {
   // tmp_ id signals "new row" — replaceLineItems strips it before sending,
   // so the server inserts it as a fresh row with a real UUID.
@@ -173,6 +185,25 @@ export function LineItemsTable({
                       {row.notes ? (
                         <div className="text-xs text-stone-gray mt-0.5">{row.notes}</div>
                       ) : null}
+                      {!readOnly && (
+                        <div className="mt-1.5">
+                          <select
+                            value={row.category}
+                            onChange={(e) =>
+                              onCommit(row.id, { category: e.target.value as ItemCategory })
+                            }
+                            className="text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded bg-adobe/60 hover:bg-mojave-green/15 text-stone-gray hover:text-saguaro-black focus:outline-none focus:ring-1 focus:ring-mojave-green/40 cursor-pointer border-0 transition-colors"
+                            aria-label={`Category for ${row.line_item_name_snapshot || "line item"}`}
+                            title="Move this item to a different category"
+                          >
+                            {CATEGORY_OPTIONS.map((c) => (
+                              <option key={c} value={c}>
+                                {titleCase(c)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </Td>
                     <Td className="text-right">
                       <NumberCell
