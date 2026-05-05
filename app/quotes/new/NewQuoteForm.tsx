@@ -122,35 +122,56 @@ export function NewQuoteForm() {
           />
         </Field>
 
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-saguaro-black">
-            Site walk recording
-            <span className="ml-2 text-xs font-normal text-stone-gray">optional</span>
-          </label>
-          <AudioUploader onTranscript={handleTranscript} />
-          <p className="text-xs text-stone-gray">
-            Drop a site-walk recording and we'll transcribe it with Deepgram —
-            the text drops into the notes below for you to review before drafting.
+        <div className="rounded-lg border border-stone-gray/30 bg-caliche-white/50 p-5 sm:p-6 space-y-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="font-serif text-xl text-saguaro-black">
+              Site walk
+              <span className="ml-2 align-middle text-[10px] uppercase tracking-[0.18em] text-sunset-terracotta">
+                required
+              </span>
+            </h3>
+          </div>
+          <p className="text-sm text-saguaro-black/80 leading-relaxed">
+            Drop a recording, write notes by hand, or do both. The agent
+            works from whatever ends up in the notes box — recordings fill
+            it automatically and you can edit before drafting.
           </p>
-        </div>
 
-        <Field
-          label="Site walk notes"
-          htmlFor="raw_notes"
-          required
-          hint="Type your notes, paste them, or let the transcript above fill this in. Be messy — the agent will pull structured scope and surface anything it can't pin down."
-          error={errors.raw_notes}
-        >
-          <Textarea
-            id="raw_notes"
-            name="raw_notes"
-            rows={10}
-            value={rawNotes}
-            onChange={(e) => setRawNotes(e.target.value)}
-            invalid={Boolean(errors.raw_notes)}
-            placeholder="Site walk Mon morning — Claire wants travertine patio replacing the existing concrete slab, roughly 16x20. Cedar pergola over the dining area, lighting package..."
-          />
-        </Field>
+          <div className="space-y-1.5">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-stone-gray">
+              1 · Recording
+              <span className="ml-2 normal-case tracking-normal text-xs text-stone-gray/80">
+                optional
+              </span>
+            </p>
+            <AudioUploader onTranscript={handleTranscript} />
+          </div>
+
+          <div className="flex items-center gap-3" aria-hidden>
+            <span className="h-px flex-1 bg-stone-gray/25" />
+            <span className="text-[10px] uppercase tracking-[0.2em] text-stone-gray">
+              and / or
+            </span>
+            <span className="h-px flex-1 bg-stone-gray/25" />
+          </div>
+
+          <Field
+            label="2 · Notes"
+            htmlFor="raw_notes"
+            hint="Type, paste, or let a recording fill this in — then edit. Be messy; the agent pulls structured scope and surfaces anything it can't pin down."
+            error={errors.raw_notes}
+          >
+            <Textarea
+              id="raw_notes"
+              name="raw_notes"
+              rows={10}
+              value={rawNotes}
+              onChange={(e) => setRawNotes(e.target.value)}
+              invalid={Boolean(errors.raw_notes)}
+              placeholder="Site walk Mon morning — Claire wants travertine patio replacing the existing concrete slab, roughly 16x20. Cedar pergola over the dining area, lighting package..."
+            />
+          </Field>
+        </div>
 
         <label className="inline-flex items-center gap-2.5 text-sm text-saguaro-black select-none cursor-pointer">
           <input

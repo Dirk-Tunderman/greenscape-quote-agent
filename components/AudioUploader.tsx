@@ -207,18 +207,18 @@ export function AudioUploader({ onTranscript, disabled }: AudioUploaderProps) {
         onDragLeave={handleDragLeave}
         onClick={() => !busy && !disabled && inputRef.current?.click()}
         className={[
-          "flex cursor-pointer flex-col items-center gap-2 rounded-md px-6 py-6 transition-colors",
+          "group flex cursor-pointer flex-col items-center gap-2 rounded-md px-6 py-7 transition-all border-2 border-dashed",
           dragOver
-            ? "border-2 border-dashed border-mojave-green bg-mojave-green/5"
-            : "border-2 border-dashed border-stone-gray/40 bg-caliche-white",
+            ? "border-mojave-green bg-mojave-green/10"
+            : "border-mojave-green/40 bg-mojave-green/[0.04] hover:border-mojave-green/70 hover:bg-mojave-green/[0.08]",
           disabled ? "opacity-50 cursor-not-allowed" : "",
         ].join(" ")}
         role="button"
         aria-disabled={disabled}
       >
         <UploadIcon />
-        <p className="text-sm text-saguaro-black">
-          Drop audio file here or click to browse
+        <p className="text-sm font-medium text-saguaro-black">
+          Drop audio file here, or click to browse
         </p>
         <p className="text-xs text-stone-gray">{ACCEPTED_LABEL}</p>
       </div>
@@ -237,7 +237,7 @@ export function AudioUploader({ onTranscript, disabled }: AudioUploaderProps) {
 
 function UploadIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-mesa-gray" aria-hidden>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-mojave-green transition-transform group-hover:-translate-y-0.5" aria-hidden>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
