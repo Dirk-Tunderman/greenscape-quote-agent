@@ -1,78 +1,75 @@
 /**
- * data/store.ts — frontend-side data adapter (the API seam).
+ * data/store.ts — frontend-side data adapter.
  *
- * This is the ONE module pages + server actions read/mutate through. It
- * exists so that swapping mock fixtures for Chat A's real backend is a
- * single-file change instead of a sprawl edit across every page.
+ * Live wire-up to Chat A's backend (no more mocks). Every function is a thin
+ * wrapper over an /api/* call so pages and server actions stay decoupled from
+ * fetch semantics.
  *
- * Current implementation: in-memory state seeded from data/mocks/, mutated
- * directly. Module-level state survives across server-component re-renders
- * within the same Node dev process (enough to demo edits + approvals
- * without a DB).
+ * Why call our own routes instead of going to Supabase directly: keeps the
+ * agent-orchestrator + audit-log + storage pipeline in one place (the API),
+ * and lets the frontend stay portable if the backend ever moves.
  *
- * To wire real backend (Chat A's routes already exist at app/api/...):
- *   - listQuotes()        → GET  /api/quotes?status=...&search=...
- *   - getQuote(id)        → GET  /api/quotes/[id]
- *   - listLineItems()     → GET  /api/line-items
- *   - cumulativeCost()    → derive from listQuotes() OR add a dedicated endpoint
- *   - createDraft(body)   → POST /api/agent/draft
- *   - patchQuote(id, ...) → PATCH /api/quotes/[id]
- *   - sendQuote(id)       → POST /api/quotes/[id]/send
- *   - setOutcome(...)     → PATCH /api/quotes/[id] (status + outcome_notes)
+ * Endpoint map:
+ *   listQuotes     → GET   /api/quotes?status=...
+ *   getQuote       → GET   /api/quotes/[id]
+ *   listLineItems  → GET   /api/line-items
+ *   cumulativeCost → derived from /api/quotes
+ *   createDraft    → POST  /api/agent/draft   (60–180s — orchestrator runs the agent chain)
+ *   patchQuote     → PATCH /api/quotes/[id]   (full-replacement on line_items; backend recomputes total)
+ *   downloadPdf    → POST  /api/quotes/[id]/send (renders PDF + uploads to Storage; email step is removed)
+ *   setOutcome     → PATCH /api/quotes/[id]   (status + outcome_notes)
  *
- * The function signatures above are the contract — pages depend on them, not
- * on the implementation. Keep them stable when swapping.
- *
- * See docs/13-frontend-internals.md for the full data-flow diagram.
+ * `apiBase()` returns a loopback URL so server-side fetch works without
+ * needing absolute public URL config. PORT is set by the systemd unit
+ * (3100) in prod and defaults to 3000 in dev.
  */
 
 import type {
   DraftRequestBody,
   LineItem,
+  Quote,
   QuoteDetail,
   QuoteLineItem,
   QuoteStatus,
   QuoteSummary,
 } from "@/lib/types";
-import { MOCK_CATALOG } from "@/data/mocks/catalog";
-import {
-  MOCK_QUOTE_SUMMARIES,
-  MOCK_CUSTOMERS,
-  getMockQuoteDetail,
-  listMockQuoteDetails,
-  totalCumulativeCost,
-} from "@/data/mocks/quotes";
 
-// --- In-memory mutable state (mock-only) ---------------------------------
-//
-// Module-level state survives across server-component re-renders in the same
-// Node process — enough to demo edits, approvals, and new draft creation
-// without needing a database. Real persistence is Chat A's domain.
-
-interface MutableState {
-  quotes: Map<string, QuoteDetail>;
-  summaries: QuoteSummary[];
+function apiBase(): string {
+  if (process.env.INTERNAL_API_URL) return process.env.INTERNAL_API_URL;
+  const port = process.env.PORT || "3000";
+  return `http://127.0.0.1:${port}`;
 }
 
-const STATE: MutableState = (() => {
-  const quotes = new Map<string, QuoteDetail>();
-  for (const q of listMockQuoteDetails()) {
-    // Clone so mutations don't mutate the seed module exports.
-    quotes.set(q.quote.id, structuredClone(q));
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${apiBase()}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${path} → ${res.status}: ${text || res.statusText}`);
   }
-  return {
-    quotes,
-    summaries: structuredClone(MOCK_QUOTE_SUMMARIES),
-  };
-})();
+  return res.json() as Promise<T>;
+}
 
 // --- Read paths -----------------------------------------------------------
 
-export async function listQuotes(opts: { status?: QuoteStatus | "all"; search?: string } = {}): Promise<QuoteSummary[]> {
-  let rows = STATE.summaries.slice();
-  if (opts.status && opts.status !== "all") {
-    rows = rows.filter((r) => r.status === opts.status);
-  }
+export async function listQuotes(opts: {
+  status?: QuoteStatus | "all";
+  search?: string;
+} = {}): Promise<QuoteSummary[]> {
+  const params = new URLSearchParams();
+  if (opts.status && opts.status !== "all") params.set("status", opts.status);
+  const path = params.toString() ? `/api/quotes?${params}` : "/api/quotes";
+  const { quotes } = await api<{ quotes: QuoteSummary[] }>(path);
+
+  // Server filters by status; search is applied client-side so we don't need
+  // to add a /api endpoint for it. List size is capped at 200 server-side.
+  let rows = quotes.slice();
   if (opts.search?.trim()) {
     const q = opts.search.trim().toLowerCase();
     rows = rows.filter(
@@ -83,23 +80,26 @@ export async function listQuotes(opts: { status?: QuoteStatus | "all"; search?: 
         r.id.toLowerCase().includes(q)
     );
   }
-  rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   return rows;
 }
 
 export async function getQuote(id: string): Promise<QuoteDetail | null> {
-  return STATE.quotes.get(id) ?? null;
+  try {
+    return await api<QuoteDetail>(`/api/quotes/${id}`);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes(" → 404")) return null;
+    throw err;
+  }
 }
 
 export async function listLineItems(): Promise<LineItem[]> {
-  return MOCK_CATALOG.slice();
+  const { line_items } = await api<{ line_items: LineItem[] }>("/api/line-items");
+  return line_items;
 }
 
 export async function cumulativeCost(): Promise<number> {
-  // Sum from current state so newly-drafted quotes contribute.
-  let total = 0;
-  for (const q of STATE.quotes.values()) total += q.quote.total_cost_usd;
-  return total;
+  const { quotes } = await api<{ quotes: QuoteSummary[] }>("/api/quotes");
+  return quotes.reduce((s, q) => s + Number(q.total_cost_usd ?? 0), 0);
 }
 
 // --- Mutations (server-action targets) ------------------------------------
@@ -109,58 +109,11 @@ export interface CreateDraftResult {
 }
 
 export async function createDraft(body: DraftRequestBody): Promise<CreateDraftResult> {
-  // Mock implementation: pick a representative existing quote as the "fresh
-  // draft" so the review page has plausible content to render. Real Chat A
-  // implementation will run the agent chain.
-  const seed = getMockQuoteDetail("q_2026_0042");
-  if (!seed) throw new Error("mock seed missing");
-
-  const newId = `q_demo_${Date.now().toString(36)}`;
-  const now = new Date().toISOString();
-
-  const cloned: QuoteDetail = structuredClone(seed);
-  cloned.quote.id = newId;
-  cloned.quote.created_at = now;
-  cloned.quote.updated_at = now;
-  cloned.quote.raw_notes = body.raw_notes;
-  cloned.quote.project_type = body.project_type || cloned.quote.project_type;
-  cloned.quote.status = "draft_ready";
-  cloned.quote.sent_at = null;
-  cloned.quote.outcome_at = null;
-  cloned.quote.outcome_notes = null;
-  cloned.quote.pdf_url = null;
-  cloned.customer = {
-    id: `cust_demo_${Date.now().toString(36)}`,
-    name: body.customer.name,
-    email: body.customer.email,
-    phone: body.customer.phone || null,
-    address: body.customer.address,
-    created_at: now,
-  };
-  cloned.quote.customer_id = cloned.customer.id;
-  cloned.line_items = cloned.line_items.map((li) => ({ ...li, quote_id: newId }));
-  cloned.audit_log = cloned.audit_log.map((entry, idx) => ({
-    ...entry,
-    id: `al_${newId}_${idx + 1}`,
-    quote_id: newId,
-    created_at: new Date(Date.now() - (cloned.audit_log.length - idx) * 1500).toISOString(),
-  }));
-
-  STATE.quotes.set(newId, cloned);
-  STATE.summaries.unshift({
-    id: cloned.quote.id,
-    customer_name: cloned.customer.name,
-    customer_email: cloned.customer.email,
-    project_type: cloned.quote.project_type,
-    status: cloned.quote.status,
-    total_amount: cloned.quote.total_amount,
-    needs_render: cloned.quote.needs_render,
-    total_cost_usd: cloned.quote.total_cost_usd,
-    created_at: cloned.quote.created_at,
-    sent_at: null,
+  const result = await api<{ quote_id: string }>("/api/agent/draft", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
-
-  return { quote_id: newId };
+  return { quote_id: result.quote_id };
 }
 
 export interface PatchLineItemInput {
@@ -175,12 +128,21 @@ export interface PatchQuoteInput {
   line_items?: PatchLineItemInput[];
 }
 
-export async function patchQuote(quoteId: string, patch: PatchQuoteInput): Promise<QuoteDetail> {
-  const detail = STATE.quotes.get(quoteId);
-  if (!detail) throw new Error(`Quote not found: ${quoteId}`);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (patch.line_items) {
-    detail.line_items = detail.line_items.map((li) => {
+export async function patchQuote(quoteId: string, patch: PatchQuoteInput): Promise<{ total: number }> {
+  const body: Record<string, unknown> = {};
+
+  if (patch.proposal_markdown !== undefined) {
+    body.proposal_markdown = patch.proposal_markdown;
+  }
+
+  if (patch.line_items && patch.line_items.length > 0) {
+    // The PATCH endpoint expects FULL line item objects (drop + insert
+    // semantics). Fetch the current items, apply per-id patches, and send
+    // the merged array. One extra GET per save — acceptable for the demo.
+    const current = await api<QuoteDetail>(`/api/quotes/${quoteId}`);
+    const merged = current.line_items.map((li) => {
       const incoming = patch.line_items!.find((p) => p.id === li.id);
       if (!incoming) return li;
       const quantity = incoming.quantity ?? li.quantity;
@@ -194,79 +156,54 @@ export async function patchQuote(quoteId: string, patch: PatchQuoteInput): Promi
         notes,
       };
     });
-    detail.quote.total_amount = sumLineItems(detail.line_items);
-    detail.quote.needs_render = detail.quote.total_amount > 30000;
+    body.line_items = merged.map((li) => ({
+      // The PATCH zod schema accepts UUID for id, optional. Pass through
+      // when valid; otherwise omit so the server inserts a fresh row.
+      ...(UUID_RE.test(li.id) ? { id: li.id } : {}),
+      line_item_id: li.line_item_id,
+      line_item_name_snapshot: li.line_item_name_snapshot,
+      category: li.category,
+      unit: li.unit,
+      quantity: li.quantity,
+      unit_price_snapshot: li.unit_price_snapshot,
+      line_total: li.line_total,
+      notes: li.notes ?? "",
+    }));
   }
 
-  if (patch.proposal_markdown !== undefined) {
-    detail.quote.proposal_markdown = patch.proposal_markdown;
-  }
+  const { quote } = await api<{ quote: Quote }>(`/api/quotes/${quoteId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 
-  detail.quote.updated_at = new Date().toISOString();
-  syncSummary(detail);
-
-  return detail;
+  return { total: Number(quote.total_amount) };
 }
 
-export interface SendResult {
+export interface DownloadPdfResult {
   pdf_url: string;
   sent_at: string;
 }
 
-export async function sendQuote(quoteId: string): Promise<SendResult> {
-  const detail = STATE.quotes.get(quoteId);
-  if (!detail) throw new Error(`Quote not found: ${quoteId}`);
-
-  const sent_at = new Date().toISOString();
-  const pdf_url = `https://example.com/proposals/${quoteId}.pdf`;
-
-  detail.quote.status = "sent";
-  detail.quote.sent_at = sent_at;
-  detail.quote.pdf_url = pdf_url;
-  detail.quote.updated_at = sent_at;
-  syncSummary(detail);
-
-  return { pdf_url, sent_at };
+/**
+ * Triggers PDF render + upload via the (former-send) endpoint.
+ * The endpoint no longer emails — it just renders + stores + marks `sent`,
+ * which we now treat as "finalized & ready to download".
+ */
+export async function downloadPdf(quoteId: string): Promise<DownloadPdfResult> {
+  const result = await api<{ pdf_url: string; sent_at: string }>(
+    `/api/quotes/${quoteId}/send`,
+    { method: "POST" }
+  );
+  return { pdf_url: result.pdf_url, sent_at: result.sent_at };
 }
 
 export async function setOutcome(
   quoteId: string,
   outcome: "accepted" | "rejected" | "lost",
   notes: string
-): Promise<QuoteDetail> {
-  const detail = STATE.quotes.get(quoteId);
-  if (!detail) throw new Error(`Quote not found: ${quoteId}`);
-  detail.quote.status = outcome;
-  detail.quote.outcome_at = new Date().toISOString();
-  detail.quote.outcome_notes = notes;
-  detail.quote.updated_at = detail.quote.outcome_at;
-  syncSummary(detail);
-  return detail;
+): Promise<void> {
+  await api(`/api/quotes/${quoteId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: outcome, outcome_notes: notes }),
+  });
 }
-
-// --- Helpers --------------------------------------------------------------
-
-function sumLineItems(items: QuoteLineItem[]): number {
-  return Math.round(items.reduce((sum, li) => sum + li.line_total, 0) * 100) / 100;
-}
-
-function syncSummary(detail: QuoteDetail): void {
-  const idx = STATE.summaries.findIndex((s) => s.id === detail.quote.id);
-  const summary: QuoteSummary = {
-    id: detail.quote.id,
-    customer_name: detail.customer.name,
-    customer_email: detail.customer.email,
-    project_type: detail.quote.project_type,
-    status: detail.quote.status,
-    total_amount: detail.quote.total_amount,
-    needs_render: detail.quote.needs_render,
-    total_cost_usd: detail.quote.total_cost_usd,
-    created_at: detail.quote.created_at,
-    sent_at: detail.quote.sent_at,
-  };
-  if (idx >= 0) STATE.summaries[idx] = summary;
-  else STATE.summaries.unshift(summary);
-}
-
-// Re-export so tests / scripts can poke directly if needed.
-export const _internals = { STATE, MOCK_CUSTOMERS, totalCumulativeCost };

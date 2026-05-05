@@ -1,14 +1,17 @@
 /**
  * createDraftAction — server action behind /quotes/new.
  *
- * Validates form input with zod, calls store.createDraft (which today builds
- * a synthetic QuoteDetail from a mock seed; tomorrow POSTs to
- * /api/agent/draft and waits for the agent chain to return a quote_id),
- * then redirects to /quotes/[id].
+ * Validates form input with zod, calls store.createDraft (which POSTs to
+ * /api/agent/draft and waits for the agent chain to finish — typically
+ * 60-180s, which is why the form's pending state is visible while
+ * useFormStatus is true). On success, redirects to /quotes/[id].
  *
- * On validation failure, returns { fieldErrors, values } so NewQuoteForm
- * can re-render with inline errors and preserved input. The form uses
- * useActionState — see app/quotes/new/NewQuoteForm.tsx.
+ * Returns { fieldErrors, formError, values } on validation failure so the
+ * form can re-render with inline errors and preserved input.
+ *
+ * The "budget signal" form field was removed — see prompts/chat-a-v2-wireup.md
+ * Task A5: it was UI-only and never piped into agent reasoning, so it was
+ * worse than not collecting it.
  */
 "use server";
 
@@ -25,7 +28,6 @@ const draftSchema = z.object({
   project_type: z.string().trim().min(2, "Project type is required"),
   raw_notes: z.string().trim().min(20, "Add at least a few sentences of site walk notes"),
   hoa: z.string().optional(),
-  budget_tier: z.string().optional().default(""),
 });
 
 export interface NewQuoteFormState {
@@ -68,7 +70,6 @@ export async function createDraftAction(
       project_type: parsed.data.project_type,
       raw_notes: parsed.data.raw_notes,
       hoa: parsed.data.hoa === "on" || parsed.data.hoa === "true",
-      budget_tier: parsed.data.budget_tier,
     });
     quoteId = quote_id;
   } catch (err) {

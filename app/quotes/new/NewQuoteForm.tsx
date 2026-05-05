@@ -29,15 +29,6 @@ const PROJECT_TYPES = [
   "Other",
 ];
 
-const BUDGET_TIERS = [
-  { value: "", label: "Not stated" },
-  { value: "under_10k", label: "Under $10K" },
-  { value: "10_30k", label: "$10K – $30K" },
-  { value: "30_60k", label: "$30K – $60K" },
-  { value: "60_100k", label: "$60K – $100K" },
-  { value: "over_100k", label: "Over $100K" },
-];
-
 export function NewQuoteForm() {
   const [state, formAction] = useActionState<NewQuoteFormState, FormData>(
     createDraftAction,
@@ -107,42 +98,23 @@ export function NewQuoteForm() {
         <legend className="font-serif text-2xl text-saguaro-black mb-2">
           Project
         </legend>
-        <div className="grid md:grid-cols-2 gap-5">
-          <Field label="Project type" htmlFor="project_type" required error={errors.project_type}>
-            <Select
-              id="project_type"
-              name="project_type"
-              defaultValue={values.project_type ?? ""}
-              invalid={Boolean(errors.project_type)}
-            >
-              <option value="" disabled>
-                Choose one
-              </option>
-              {PROJECT_TYPES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field
-            label="Budget signal"
-            htmlFor="budget_tier"
-            hint="Informational only — not used in agent reasoning"
+        <Field label="Project type" htmlFor="project_type" required error={errors.project_type}>
+          <Select
+            id="project_type"
+            name="project_type"
+            defaultValue={values.project_type ?? ""}
+            invalid={Boolean(errors.project_type)}
           >
-            <Select
-              id="budget_tier"
-              name="budget_tier"
-              defaultValue={values.budget_tier ?? ""}
-            >
-              {BUDGET_TIERS.map((b) => (
-                <option key={b.value} value={b.value}>
-                  {b.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+            <option value="" disabled>
+              Choose one
+            </option>
+            {PROJECT_TYPES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </Select>
+        </Field>
 
         <Field
           label="Site walk notes"
