@@ -76,7 +76,6 @@ export default async function QuotesPage({
                   <Th className="hidden lg:table-cell">Project</Th>
                   <Th>Status</Th>
                   <Th className="text-right">Total</Th>
-                  <Th className="text-right hidden md:table-cell">API cost</Th>
                   <Th className="text-right">Created</Th>
                   <Th className="w-12"><span className="sr-only">Delete</span></Th>
                 </tr>
@@ -115,9 +114,6 @@ export default async function QuotesPage({
                     </Td>
                     <Td className="text-right tnum font-medium">
                       {formatCurrencyWhole(q.total_amount)}
-                    </Td>
-                    <Td className="text-right tnum text-stone-gray hidden md:table-cell">
-                      {formatCurrency(q.total_cost_usd)}
                     </Td>
                     <Td className="text-right text-stone-gray whitespace-nowrap">
                       {formatDate(q.created_at)}
