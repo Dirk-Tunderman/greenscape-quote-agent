@@ -49,7 +49,7 @@ An **AI quote drafting agent** that:
 - README + `.env.example`
 
 ### Out — deferred to Phase 2+
-- Voice memo / audio input + Deepgram transcription (consistent with existing Tunderman stack)
+- Voice memo / audio input + Deepgram transcription (consistent with existing internal stack)
 - GHL API integration (we send via email; documented as Phase 2)
 - Stripe deposit invoice generation post-approval
 - DocuSign signature flow (already exists in GHL)

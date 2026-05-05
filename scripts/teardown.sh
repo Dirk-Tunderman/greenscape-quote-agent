@@ -11,9 +11,9 @@
 #   4. Cloudflare DNS record `quote-agent.tunderman.cc` (manual reminder — no API call)
 #
 # What this does NOT touch (read docs/12-deployment.md "Isolation rules"):
-#   - Anything SchilderGroei (`/opt/schildergroei`, `schildergroei-*` services)
-#   - Other lead-website APIs (willemschilderwerken-, schildersbedrijf-tijmen-,
-#     bossche-schilderwerken-, veluws-schilderwerk-)
+#   - Anything the parent platform (`/opt/<other-service>`, `<other-project>-*` services)
+#   - Other lead-website APIs (<other-service-A>-, <other-service-B>-,
+#     <other-service-C>-, <other-service-D>-)
 #   - Anything in /var/www
 #   - Caddy itself — only the one site block we added (matched by sentinel markers)
 #   - Node.js, npm, system packages, or any firewall rule
@@ -24,10 +24,10 @@
 set -euo pipefail
 
 # --- config ---------------------------------------------------------------
-# Server 1 is the same box that hosts SchilderGroei production. Listed in
+# Server 1 is the same box that hosts the parent platform production. Listed in
 # ~/Desktop/system/credentials.md. Do not change to any other server.
-SERVER="root@157.90.124.14"
-SSH_KEY="$HOME/.ssh/id_ed25519"
+SERVER="root@<HETZNER_IP>"
+SSH_KEY="$HOME/.ssh/<your-ssh-key>"
 
 APP_DIR="/opt/greenscape-quote-agent"
 SERVICE="greenscape-quote-agent.service"
@@ -83,7 +83,7 @@ echo
 #   2. Verify our sentinel marker exists; if not, exit cleanly (idempotent).
 #   3. `sed -i '/BEGIN/,/END/d'` removes only the lines between the markers,
 #      leaving every other site block untouched. This is critical because
-#      the Caddyfile also defines SchilderGroei + 4 lead-website APIs.
+#      the Caddyfile also defines the parent platform + 4 lead-website APIs.
 #   4. Validate before reloading. Reload (not restart) so other sites stay up.
 echo "Step 3: remove Caddy site block (if present)"
 if confirm "Proceed?"; then
@@ -107,15 +107,15 @@ echo
 # (see docs/12-deployment.md "Maintenance moving forward" item 4). Until that's
 # rotated, DNS removal is a one-click manual action in the dashboard.
 echo "Step 4 (manual): remove Cloudflare DNS record for quote-agent.tunderman.cc"
-echo "  Visit https://dash.cloudflare.com/ba28420353f5337ec43ebdfe1ac09598/tunderman.cc/dns/records → delete the 'quote-agent' A record."
+echo "  Visit https://dash.cloudflare.com/<CLOUDFLARE_ACCOUNT_ID>/tunderman.cc/dns/records → delete the 'quote-agent' A record."
 echo
 
 # --- Sanity gate: confirm shared services survived -----------------------
 # This is the single most important post-teardown check. If any of these
 # four are not 'active', stop and investigate before touching anything else.
-echo "=== Verifying SchilderGroei + Caddy still healthy ==="
+echo "=== Verifying the parent platform + Caddy still healthy ==="
 ssh -i "$SSH_KEY" "$SERVER" "
-  for s in schildergroei-api schildergroei-web willemschilderwerken-api caddy; do
+  for s in <other-service>-api <other-service>-web <other-service-2>-api caddy; do
     printf '  %-32s %s\n' \"\$s\" \"\$(systemctl is-active \$s)\"
   done
 "

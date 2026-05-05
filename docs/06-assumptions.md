@@ -123,7 +123,7 @@ The architecture is built so that every assumption maps to a swappable component
 - Agent accepts **freeform text** as input (paste from anywhere, type fresh, or transcribed voice memo in Phase 2)
 - No required structure — extract whatever's present
 - Agent surfaces ambiguity rather than guessing missing info
-- Phase 2 adds: voice memo upload + Deepgram transcription (existing infra in SchilderGroei + Lead System), then same downstream chain
+- Phase 2 adds: voice memo upload + Deepgram transcription (existing infra in other internal projects), then same downstream chain
 
 **Why defensible:** The agent's `extract_scope` skill is designed to handle messy unstructured input — that's its job. Locking input to a specific format would defeat the purpose and break against Marcus's actual workflow (whatever it is).
 

@@ -6,7 +6,7 @@
 #   - /etc/systemd/system/greenscape-quote-agent.service  (PORT=3100, loopback)
 #   - /opt/greenscape-quote-agent/.env     (populated by you with prod env vars)
 #
-# Usage from project root on a workstation with SSH access to root@157.90.124.14:
+# Usage from project root on a workstation with SSH access to root@<HETZNER_IP>:
 #   ./scripts/deploy.sh
 #
 # Or from the server itself:
@@ -21,7 +21,7 @@
 set -euo pipefail
 
 SERVER_USER="root"
-SERVER_HOST="157.90.124.14"
+SERVER_HOST="<HETZNER_IP>"
 SERVER_PATH="/opt/greenscape-quote-agent"
 SERVICE_NAME="greenscape-quote-agent"
 LOCAL_PORT="3100"
@@ -61,22 +61,22 @@ fi
 
 echo "===> Syncing build to $SERVER_USER@$SERVER_HOST:$SERVER_PATH"
 # Preserve .env at the deploy root via --exclude=.env so secrets survive deploys.
-rsync -az --delete --exclude=.env --rsh="ssh -i $HOME/.ssh/id_ed25519" \
+rsync -az --delete --exclude=.env --rsh="ssh -i $HOME/.ssh/<your-ssh-key>" \
   .next/standalone/ "$SERVER_USER@$SERVER_HOST:$SERVER_PATH/"
 
-ssh -i "$HOME/.ssh/id_ed25519" "$SERVER_USER@$SERVER_HOST" \
+ssh -i "$HOME/.ssh/<your-ssh-key>" "$SERVER_USER@$SERVER_HOST" \
   "mkdir -p $SERVER_PATH/.next/static $SERVER_PATH/public"
 
-rsync -az --delete --rsh="ssh -i $HOME/.ssh/id_ed25519" \
+rsync -az --delete --rsh="ssh -i $HOME/.ssh/<your-ssh-key>" \
   .next/static/ "$SERVER_USER@$SERVER_HOST:$SERVER_PATH/.next/static/"
 
 if [[ -d public ]]; then
-  rsync -az --delete --rsh="ssh -i $HOME/.ssh/id_ed25519" \
+  rsync -az --delete --rsh="ssh -i $HOME/.ssh/<your-ssh-key>" \
     public/ "$SERVER_USER@$SERVER_HOST:$SERVER_PATH/public/"
 fi
 
 echo "===> Restarting systemd service"
-ssh -i "$HOME/.ssh/id_ed25519" "$SERVER_USER@$SERVER_HOST" "
+ssh -i "$HOME/.ssh/<your-ssh-key>" "$SERVER_USER@$SERVER_HOST" "
   systemctl restart $SERVICE_NAME
   sleep 2
   curl -fsS http://127.0.0.1:$LOCAL_PORT >/dev/null && echo 'Service is responding on $LOCAL_PORT'

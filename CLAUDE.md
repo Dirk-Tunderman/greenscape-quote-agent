@@ -1,14 +1,14 @@
 # Greenscape Quote Agent (L&S Take-Home)
 
-AI quote drafting agent for a fictional Phoenix hardscape contractor — submitted as the L&S "AI Developer Role" 24h take-home. Removes the founder from proposal drafting (6-9 days → <2 days) by extracting scope from his notes, matching to a priced catalog, generating a branded PDF, and emailing the customer after his approval.
+AI quote drafting agent for a fictional Phoenix hardscape contractor — submitted as the L&S "AI Developer Role" 24h take-home. Removes the founder from proposal drafting (6-9 days → <2 days) by extracting scope from his notes, matching to a priced catalog, generating a branded PDF, and surfacing it as a signed URL for the founder to forward.
 
-**Live:** https://quote-agent.tunderman.cc · **Repo:** private GitHub at `Dirk-Tunderman/greenscape-quote-agent`
+**Live:** https://quote-agent.tunderman.cc · **Repo:** `Dirk-Tunderman/greenscape-quote-agent`
 
 ---
 
 ## Position
 
-- **Business unit:** Other — one-off take-home, not a Tunderman or SchilderGroei product
+- **Business unit:** Other — one-off take-home, not a a personal or the parent platform product
 - **Macro-operation:** Skills demonstration / portfolio
 - **Maturation stage:** Codified — functional MVP, live in production, 2 integration tests passed
 - **Directory path:** `/Users/dirktunderman/Desktop/projects/test-project-LS`
@@ -23,7 +23,7 @@ AI quote drafting agent for a fictional Phoenix hardscape contractor — submitt
 
 ## On Session Start
 
-Load the standard block from `~/Desktop/system/SESSION-START.md`. Then, before doing anything in this directory:
+Before doing anything in this directory:
 
 1. `git pull`
 2. Read `docs/build-process/STATUS.md` — live multi-chat coordination dashboard
@@ -38,9 +38,9 @@ Load the standard block from `~/Desktop/system/SESSION-START.md`. Then, before d
 ### Tools in use here
 
 - **Anthropic Claude SDK** — Sonnet 4.5 (generation skills) + Haiku 4.5 (classification/validation). 5-skill chain in `lib/skills/`
-- **Supabase** — Postgres (`greenscape` schema, RLS, service-role from API) + Storage (PDFs). Shared instance with SchilderGroei + Lead System
+- **Supabase** — Postgres (`greenscape` schema, RLS, service-role from API) + Storage (PDFs). Shared instance with other internal projects
 - **Deepgram** — Nova-3 audio transcription (`POST /api/transcribe`)
-- **Hetzner Server 1** (`157.90.124.14`) — mixed-use server. Next.js standalone behind Caddy + systemd
+- **Hetzner Server 1** (`<HETZNER_IP>`) — mixed-use server. Next.js standalone behind Caddy + systemd
 - **Cloudflare** — DNS for `quote-agent.tunderman.cc`
 
 ### Relevant skills
@@ -59,11 +59,11 @@ Load the standard block from `~/Desktop/system/SESSION-START.md`. Then, before d
 
 ### Foundation references
 
-N/A — this is a fictional-client take-home, not Tunderman content. The 9-section proposal template + voice spec is industry-anchored (not Tunderman-brand) and lives in `docs/06-assumptions.md` + `docs/build-process/10-industry-research.md`.
+N/A — this is a fictional-client take-home, not consultancy content. The 9-section proposal template + voice spec is industry-anchored (not a personal brand) and lives in `docs/06-assumptions.md` + `docs/build-process/10-industry-research.md`.
 
 ### Related projects
 
-Standalone — no in-system dependencies. The Hetzner Server 1 conventions are inherited from `~/Desktop/projects/schildergroei/` (mixed-use server, `/opt/<service>/` for backends, Caddy site blocks).
+Standalone — no in-system dependencies. The Hetzner Server 1 conventions are inherited from `~/Desktop/projects/<other>/` (mixed-use server, `/opt/<service>/` for backends, Caddy site blocks).
 
 ---
 
@@ -100,8 +100,8 @@ npm run typecheck    # tsc --noEmit
 
 ### Rules unique to this directory
 
-- **Schema isolation:** every DB write goes through `lib/db/supabase.ts` against `greenscape.*` tables. Never touch `public`, SchilderGroei, or Lead System tables on the shared instance.
-- **Anthropic key:** currently SchilderGroei's key in temp reuse (per credentials.md project-scoping rule). Swap or null out on teardown.
+- **Schema isolation:** every DB write goes through `lib/db/supabase.ts` against `greenscape.*` tables. Never touch `public`, or <lead-tooling> tables on the shared instance.
+- **Anthropic key:** currently a shared's key in temp reuse (per credentials.md project-scoping rule). Swap or null out on teardown.
 - **Multi-chat ownership** (commit boundaries — see `docs/11-current-state.md` "Coordination conventions"):
   - Chat A: `lib/{anthropic,audit,db,skills,orchestrator,pdf,email}.ts`, `app/api/`, `supabase/`, `data/historical-proposals.json`, `scripts/deploy.sh`, root configs
   - Chat B: `app/quotes/`, `app/admin/`, `app/layout.tsx`, `app/page.tsx`, `app/globals.css`, `components/`, `data/{mocks,store}.ts`, `lib/types.ts` (shared, B is primary)
@@ -115,7 +115,4 @@ Final code-review subagent + Loom recording (≤5 min) + submission email to L&S
 
 ---
 
-**Credentials:** `~/Desktop/system/credentials.md`
 **Learnings:** `LEARNING.md` — read before starting work. Add new entries when you learn something worth keeping.
-
-*Principles → `~/Desktop/system/BIBLE.md`. Procedures → `~/Desktop/system/OPERATIONS.md`. Persona → `~/Desktop/system/SOUL.md`. Universal session start → `~/Desktop/system/SESSION-START.md`.*

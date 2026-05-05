@@ -102,7 +102,7 @@ Components: data tables, form fields, inline-edit cells, approve button with con
 
 ### Chat C — Hetzner Deployment Setup (separate chat, runs in parallel — short)
 
-**Owns:** server-side prep on `157.90.124.14` (existing SchilderGroei prod server, mixed-use).
+**Owns:** server-side prep on `<HETZNER_IP>` (existing another production server, mixed-use).
 
 Tasks:
 - Provision `/opt/greenscape-quote-agent` directory
@@ -169,16 +169,16 @@ Read order at the start of next chat:
 
 ## Specific things the user authorized in this session
 
-- **Hetzner Server 1** (`157.90.124.14`) for temporary deploy (~1 week, will be removed after)
-- **Supabase shared instance** — new schema `greenscape`, no impact on SchilderGroei or Lead System tables
+- **Hetzner Server 1** (`<HETZNER_IP>`) for temporary deploy (~1 week, will be removed after)
+- **Supabase shared instance** — new schema `greenscape`, no impact on the parent platform or <lead-tooling> tables
 - **Public GitHub repo** at https://github.com/Dirk-Tunderman/greenscape-quote-agent
 - **Direct PDF path** (markdown editor → PDF) — not Google Drive (deferred to Phase 2)
 - **Deepgram for audio** (Phase 2; not built in 24h MVP) — matches existing Tunderman infra
 
 ## Specific things still to confirm at start of next session
 
-- **Anthropic API key:** new dedicated key (preferred — costs trackable) OR temporarily reuse SchilderGroei's key (~$1-3 total). User leaning permission-by-default; confirm.
-- **Public URL format:** IP:port (`http://157.90.124.14:PORT`) is the assumed default. If user wants subdomain (`quote-agent.tunderman.io`), DNS work needed — adds ~30 min.
+- **Anthropic API key:** new dedicated key (preferred — costs trackable) OR temporarily reuse <other-project>'s key (~$1-3 total). User leaning permission-by-default; confirm.
+- **Public URL format:** IP:port (`http://<HETZNER_IP>:PORT`) is the assumed default. If user wants subdomain (`quote-agent.<your-domain>`), DNS work needed — adds ~30 min.
 
 ---
 

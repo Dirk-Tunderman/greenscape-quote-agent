@@ -127,18 +127,18 @@ Phase progression (from `docs/build-process/05-build-plan.md`):
 - **Waiting on:** Chat A's API routes — when ready, swap `data/store.ts` function bodies to `fetch()` against `/api/agent/draft`, `GET/PATCH /api/quotes`, `POST /api/quotes/[id]/send`. Pages don't change. **Recipe in `docs/build-process/13-frontend-internals.md` § "Wiring to backend".**
 
 ### Chat C (Hetzner Deployment) — **DONE · public URL live**
-- **Owns:** server-side prep on `157.90.124.14` (Caddy site block, systemd unit, port assignment)
-- **Public URL:** **https://quote-agent.tunderman.cc** (HTTPS via Caddy auto-LE; cert valid until 2026-08-03; DNS A `quote-agent.tunderman.cc → 157.90.124.14`, DNS-only)
+- **Owns:** server-side prep on `<HETZNER_IP>` (Caddy site block, systemd unit, port assignment)
+- **Public URL:** **https://quote-agent.tunderman.cc** (HTTPS via Caddy auto-LE; cert valid until 2026-08-03; DNS A `quote-agent.tunderman.cc → <HETZNER_IP>`, DNS-only)
 - **Done:**
   - Snapshotted server state pre-change: `/tmp/services-before.txt`, `/tmp/ports-before.txt`, `/tmp/Caddyfile.before` (+ `/tmp/Caddyfile.before-greenscape` taken right before the Caddy edit)
-  - Created `/opt/greenscape-quote-agent` (root-owned, matches SchilderGroei convention)
+  - Created `/opt/greenscape-quote-agent` (root-owned, matches the existing project convention)
   - Created `/etc/systemd/system/greenscape-quote-agent.service` (User=root, ExecStart=`/usr/bin/node server.js`, PORT=3100, HOSTNAME=127.0.0.1, optional EnvFile, Restart=on-failure) — `daemon-reload`-ed but NOT enabled (Chat A enables on first deploy if desired)
   - Built minimal Next.js 14 standalone hello-world, deployed to `/opt/greenscape-quote-agent`, verified loopback **HTTP 200, 4231 bytes**
-  - **Added Cloudflare DNS** A record `quote-agent.tunderman.cc → 157.90.124.14` (DNS-only / gray cloud — required for Caddy LE challenge)
+  - **Added Cloudflare DNS** A record `quote-agent.tunderman.cc → <HETZNER_IP>` (DNS-only / gray cloud — required for Caddy LE challenge)
   - **Added Caddy site block** in `/etc/caddy/Caddyfile` (between markers `# >>> greenscape-quote-agent (TEMPORARY ...)` and `# <<< greenscape-quote-agent <<<` — teardown.sh removes by these markers); `caddy validate` clean; `systemctl reload caddy` (zero-downtime, not restart)
   - **External live test:** `curl https://quote-agent.tunderman.cc` → HTTP 200, 4231 bytes, valid LE cert (issuer E7), 0.20s
   - Stopped hello-world service after verify (Chat A's code will replace)
-  - Final verification gate: all 6 SchilderGroei + lead-website services + Caddy `active`; service-list diff vs pre-change snapshot **identical**; Caddy validate clean
+  - Final verification gate: all 6 the parent platform + lead-website services + Caddy `active`; service-list diff vs pre-change snapshot **identical**; Caddy validate clean
   - Wrote `scripts/teardown.sh` (idempotent, confirmation-gated cleanup of DNS/Caddy/service/dir for end of demo window)
   - **Wrote `docs/build-process/12-deployment.md`** — canonical deployment reference (request path, file layout, DNS, Caddy block, systemd unit, deploy procedure, env expectations, verification gate, troubleshooting matrix, isolation rules, teardown, maintenance notes). Tightened inline comments in `scripts/teardown.sh`. Updated README's Deploy URL + docs index.
 - **Last commit:** see git log (Chat C: docs/12-deployment + inline comments)
@@ -152,16 +152,16 @@ Phase progression (from `docs/build-process/05-build-plan.md`):
 | Resource | URL |
 |---|---|
 | GitHub repo | https://github.com/Dirk-Tunderman/greenscape-quote-agent (private) |
-| Supabase project | https://oixhegfptjdcfbwngktq.supabase.co (shared instance, `greenscape` schema) |
-| Hetzner Server 1 | `157.90.124.14` (SSH: `ssh -i ~/.ssh/id_ed25519 root@157.90.124.14`) |
+| Supabase project | https://<SUPABASE_PROJECT_ID>.supabase.co (shared instance, `greenscape` schema) |
+| Hetzner Server 1 | `<HETZNER_IP>` (SSH: `ssh -i ~/.ssh/<your-key> root@<HETZNER_IP>`) |
 | Deploy URL | **https://quote-agent.tunderman.cc** — live with hello-world, valid LE cert; reverts to 502 until Chat A starts the service with real code |
 
 ---
 
 ## Open decisions to confirm at kickoff
 
-1. **Anthropic API key:** new dedicated key (preferred per credentials.md project-scoping rule) OR temporarily reuse SchilderGroei's (~$1-3 total cost). Confirm with user.
-2. ~~**Public URL format**~~ — **RESOLVED 2026-05-05.** Path B chosen with `tunderman.cc` (instead of `tunderman.io`). DNS record added manually via Cloudflare dashboard. Public URL: `https://quote-agent.tunderman.cc`.
+1. **Anthropic API key:** new dedicated key (preferred per credentials.md project-scoping rule) OR temporarily reuse <other-project>'s (~$1-3 total cost). Confirm with user.
+2. ~~**Public URL format**~~ — **RESOLVED 2026-05-05.** Path B chosen with `tunderman.cc` (instead of `<your-domain>`). DNS record added manually via Cloudflare dashboard. Public URL: `https://quote-agent.tunderman.cc`.
 3. **Chat orchestration:** confirm A/B/C are running in parallel.
 
 ---
@@ -180,7 +180,7 @@ Phase progression (from `docs/build-process/05-build-plan.md`):
 | 2026-05-05 | Chat A | **END-TO-END LIVE.** 2 integration tests on PROD passed (Patel $15,955 patio+irrigation, Chen $59,000 full backyard with `needs_render:true`). Real Anthropic Sonnet 4.5 + Haiku 4.5 chains, real Supabase DB + Storage, real Resend email send w/ branded PDF attached. Validate-on-fail retry loop verified. Total dev+test Anthropic spend ≈ $0.50. |
 | 2026-05-05 | Chat A | Aligned code with research D26-D30: migration 003 (item_type / payment_schedule / ROC / insurance), 9-section template w/ Exclusions + Warranty + License Block, ROC + payment-schedule-sum validators; build green; **ROC/insurance later stripped per user (kept columns for forward compat)** |
 | 2026-05-05 | Chat A | Backend Phases 0–7: schema + seed SQL · 5 skills + orchestrator (Sonnet 4.5 + Haiku 4.5) · 5 API routes · branded react-pdf · Resend send · audit log + $0.50 cap · `scripts/deploy.sh` |
-| 2026-05-05 | Chat C | **PUBLIC URL LIVE: https://quote-agent.tunderman.cc** — DNS A record added (Cloudflare, DNS-only), Caddy site block added + reloaded zero-downtime, valid LE cert issued, HTTPS 200 verified externally. SchilderGroei + lead-websites unaffected (services + ports + diff verified identical to pre-change snapshot). |
+| 2026-05-05 | Chat C | **PUBLIC URL LIVE: https://quote-agent.tunderman.cc** — DNS A record added (Cloudflare, DNS-only), Caddy site block added + reloaded zero-downtime, valid LE cert issued, HTTPS 200 verified externally. the parent platform + lead-websites unaffected (services + ports + diff verified identical to pre-change snapshot). |
 | 2026-05-05 | Chat C | Wrote `scripts/teardown.sh` (idempotent, confirmation-gated cleanup for end of demo) |
 | 2026-05-05 | Chat C | Discovered + documented publishing blocker: Hetzner Cloud Firewall blocks ports 1024+ externally; Cloudflare API token currently invalid |
 | 2026-05-05 | Chat C | Hello-world Next.js 14 standalone build verified loopback-reachable at `http://localhost:3100` (HTTP 200, 4231 bytes); service stopped post-verify |
@@ -216,7 +216,7 @@ The full Chat A backend is coded, typechecked, and production-built green. Three
    Either OK the next Supabase MCP `apply_migration` calls (Chat A will trigger), or apply via Supabase dashboard SQL editor / CLI.
 
 **2. Populate `.env.local`** at project root with at minimum:
-   - `ANTHROPIC_API_KEY` — new dedicated key (preferred per credentials.md), or temp-reuse SchilderGroei's (~$1-3 dev+demo cost)
+   - `ANTHROPIC_API_KEY` — new dedicated key (preferred per credentials.md), or temp-reuse <other-project>'s (~$1-3 dev+demo cost)
    - `RESEND_API_KEY` — for email send
    - `RESEND_FROM_EMAIL` — verified-domain sender
    - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -230,12 +230,12 @@ Once these land, Chat A runs the integration test (3 happy-path quotes + edge ca
 
 #### ~~B-001 · External publishing~~ → RESOLVED 2026-05-05
 
-User added Cloudflare DNS record `quote-agent.tunderman.cc → 157.90.124.14` (DNS-only) manually via dashboard. Chat C added Caddy site block, validated, reloaded. External HTTPS GET verified 200 with valid LE cert. Public URL: **https://quote-agent.tunderman.cc**.
+User added Cloudflare DNS record `quote-agent.tunderman.cc → <HETZNER_IP>` (DNS-only) manually via dashboard. Chat C added Caddy site block, validated, reloaded. External HTTPS GET verified 200 with valid LE cert. Public URL: **https://quote-agent.tunderman.cc**.
 
 **Chat A deploy command (now unblocked):**
 
 ```
-ssh -i ~/.ssh/id_ed25519 root@157.90.124.14 \
+ssh -i ~/.ssh/<your-key> root@<HETZNER_IP> \
   'cd /opt/greenscape-quote-agent && \
    git pull && npm ci && npm run build && \
    systemctl restart greenscape-quote-agent'

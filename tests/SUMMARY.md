@@ -58,7 +58,7 @@ All 6 runs under the $0.50 per-quote cap. All under the 240s route timeout.
 - Cases 02-06 all show "3024 N 44th St, Phoenix" (case 01's address) on the quote header
 - Customer NAME is preserved correctly in proposals — agent quality is unaffected
 - Phone digit drift "...4096" → "...4098" suggests possible parallel-tab interference for that field
-- Any future quote for `dirk.tunderman@outlook.com` will show the original address
+- Any future quote for `test@example.com` will show the original address
 
 **What to do:** Either (a) update the existing record with form values on dedup match, OR (b) prompt "this email matches existing customer; use stored OR update?", OR (c) document as known limitation in Loom + decision log.
 

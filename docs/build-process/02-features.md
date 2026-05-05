@@ -41,7 +41,7 @@
 | 14 | Carlos render trigger (>$30K visual flag) | **MVP** | Trigger workflow = Phase 2 |
 | 15 | Pricing catalog admin (read-only view) | **MVP** | Edit = Phase 2 |
 | 16 | Audit log of all agent decisions | **MVP** | Full reproducibility |
-| 17 | Voice memo upload + transcription | Phase 2 | Deepgram API (matches existing Tunderman infra — used in SchilderGroei + Lead System) |
+| 17 | Voice memo upload + transcription | Phase 2 | Deepgram API (matches existing Tunderman infra — used in other internal projects) |
 | 18 | GHL push on approval | Phase 2 | Requires GHL OAuth setup |
 | 19 | Stripe deposit invoice generation | Phase 2 | Triggered after approval |
 | 20 | DocuSign integration | Phase 2 | Already exists in GHL native flow |

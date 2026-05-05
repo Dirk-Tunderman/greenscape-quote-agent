@@ -13,7 +13,7 @@
 | Field | Value |
 |---|---|
 | Name | Dirk Tunderman |
-| Email | dirk.tunderman@outlook.com |
+| Email | test@example.com |
 | Phone | +31 6 14554096 |
 | Project address | 1118 W Roma Ave, Phoenix, AZ 85013 |
 | Project type | Backyard refresh |

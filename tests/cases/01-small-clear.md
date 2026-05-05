@@ -11,7 +11,7 @@
 | Field | Value |
 |---|---|
 | Name | Dirk Tunderman |
-| Email | dirk.tunderman@outlook.com |
+| Email | test@example.com |
 | Phone | +31 6 14554096 |
 | Project address | 3024 N 44th St, Phoenix, AZ 85018 |
 | Project type | Fire pit / fire feature |

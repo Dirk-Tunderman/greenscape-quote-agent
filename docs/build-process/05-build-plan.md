@@ -173,7 +173,7 @@ Approximately **16-18 hours of actual build time**, with buffer. Strategy/planni
 
 These belong in Phase 2 / 3 and we'll explicitly call out in the Loom that we deliberately scoped them out:
 
-- Voice memo input + transcription (Phase 2 — Deepgram API integration; matches existing Tunderman stack)
+- Voice memo input + transcription (Phase 2 — Deepgram API integration; matches existing internal stack)
 - GHL push on approval (Phase 2 — needs OAuth setup + GHL contact mapping)
 - Stripe deposit invoice generation (Phase 2 — triggered post-approval)
 - DocuSign integration (Phase 2 — already exists in GHL native flow)

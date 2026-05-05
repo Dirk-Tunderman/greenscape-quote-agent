@@ -33,7 +33,7 @@ The "registry table" idea from the original deferred plan turned out to be over-
 
 **Ship:**
 - File upload field on `/quotes/new` (audio/m4a, audio/mp3, audio/wav)
-- Deepgram client wrapper in `lib/transcribe.ts` (Deepgram already in Tunderman stack — `~/Desktop/system/credentials.md`)
+- Deepgram client wrapper in `lib/transcribe.ts` (Deepgram already in internal stack — `~/Desktop/system/credentials.md`)
 - Server action: upload audio → Deepgram → text → existing `extract_scope` flow
 - Loading state during transcription (5-15s typical)
 
@@ -146,9 +146,9 @@ The "registry table" idea from the original deferred plan turned out to be over-
 
 Lean: option (b) if shipping, but (a) is fine for MVP-level fix.
 
-### F14 · Real Anthropic key (not SchilderGroei reuse)
+### F14 · Real Anthropic key (not shared reuse)
 
-**What:** Per `~/Desktop/system/credentials.md` project-scoping rule, the Anthropic key should be project-scoped to Greenscape, not reused from SchilderGroei.
+**What:** Per `~/Desktop/system/credentials.md` project-scoping rule, the Anthropic key should be project-scoped to Greenscape, not reused from another internal project.
 
 **Why deferred:** Temporary 1-week deploy; ~$1-3 total cost not worth a separate key for the demo window.
 

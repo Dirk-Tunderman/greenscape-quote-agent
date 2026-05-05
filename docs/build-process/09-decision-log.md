@@ -80,7 +80,7 @@ We built a synthetic ~80-item pricing catalog and a 7-section proposal template.
 
 ### D10 · Hetzner VPS over Vercel for hosting
 
-**Why:** User has existing Hetzner infrastructure (SchilderGroei production server, mixed-use per credentials.md). Deploying to existing infra = no new vendor relationship for a 1-week temporary project. Caddy reverse proxy + systemd service is the convention.
+**Why:** User has existing Hetzner infrastructure (<other-project> production server, mixed-use per credentials.md). Deploying to existing infra = no new vendor relationship for a 1-week temporary project. Caddy reverse proxy + systemd service is the convention.
 
 **Trade-off:** More setup time than Vercel (~30-60 min infra prep vs Vercel's instant deploy). But uses existing knowledge stack and avoids Vercel free-tier limits on Anthropic call durations.
 
@@ -94,15 +94,15 @@ We built a synthetic ~80-item pricing catalog and a 7-section proposal template.
 
 ### D12 · Deepgram for audio (Phase 2) over OpenAI Whisper
 
-**Why:** Matches existing Tunderman infrastructure (used in SchilderGroei + Lead System). Same API key pattern, same SDK conventions. No new vendor onboarding.
+**Why:** Matches existing Tunderman infrastructure (used in other internal projects). Same API key pattern, same SDK conventions. No new vendor onboarding.
 
 **Note:** Audio input is Phase 2, not built in this 24h MVP.
 
 ### D13 · Supabase shared instance with new `greenscape` schema (not new Supabase project)
 
-**Why:** User has existing shared Supabase instance for SchilderGroei + Lead System. Per credentials.md: *"Same DB, separate tables/schemas."* Following the established convention.
+**Why:** User has existing shared Supabase instance for other internal projects. Per credentials.md: *"Same DB, separate tables/schemas."* Following the established convention.
 
-**Schema isolation:** All our tables under `greenscape.*` schema. Zero impact on `public`, SchilderGroei, or Lead System tables. Easy clean removal: `DROP SCHEMA greenscape CASCADE;` when temporary deployment ends.
+**Schema isolation:** All our tables under `greenscape.*` schema. Zero impact on `public`, or <lead-tooling> tables. Easy clean removal: `DROP SCHEMA greenscape CASCADE;` when temporary deployment ends.
 
 ### D14 · Anthropic Claude Sonnet (generation) + Haiku (classification) split
 
@@ -427,16 +427,16 @@ These decisions came after the initial mock-backed deploy went live and the user
 
 ### D43 · Audio upload on /quotes/new (Deepgram Nova-3 → notes textarea)
 
-**Why:** Marcus dictates site walks as voice memos in the field. Forcing him to retype them at the desk is wasteful; the brief flagged voice as a stretch goal but Deepgram is already wired into `tools.tunderman.cc`, so a one-day port was cheaper than expected.
+**Why:** Marcus dictates site walks as voice memos in the field. Forcing him to retype them at the desk is wasteful; the brief flagged voice as a stretch goal but Deepgram is already wired into `<internal-tools-domain>`, so a one-day port was cheaper than expected.
 
 **What we shipped:**
 - `POST /api/transcribe` — multipart audio → Deepgram Nova-3 with `detect_language=true&smart_format=true&punctuate=true`. No DB persistence; the transcript drops straight into the existing `raw_notes` textarea on the form so the user reviews/edits before the same submit path runs.
 - `components/AudioUploader.tsx` — drag-drop + click-to-browse, XHR upload with progress, four phases (idle / uploading / transcribing / done / error). Idle state styled to look inviting (mojave-green dashed border + tint + hover lift) — earlier round looked disabled.
 - `NewQuoteForm.tsx` — textarea is now controlled (was uncontrolled `defaultValue`) so the uploader can write into it. Submit path is unchanged: same `raw_notes` field reaches the server action whether typed, pasted, or transcribed. Append-on-second-upload preserves prior content under a blank line.
 - "Site walk" group: recording widget + textarea live in one bordered card with the lead-in *"Drop a recording, write notes by hand, or do both. The agent works from whatever ends up in the notes box."* Numbered sub-steps with an "and / or" divider.
-- `DEEPGRAM_API_KEY` in `.env.local` and on the Hetzner server's `.env` (same key the lead-system tools page uses).
+- `DEEPGRAM_API_KEY` in `.env.local` and on the Hetzner server's `.env` (same key the <other-internal-project> page uses).
 
-**Component code adapted from `lead-system/tools/src/app/transcribe/`** (Nova-3 setup, ALLOWED_TYPES list) with the persistence layer stripped — for the take-home we don't keep transcripts. Restyled to the saguaro/mojave-green palette and converted to inline SVGs (project doesn't pull in lucide-react).
+**Component code adapted from `<other-internal-project>/tools/src/app/transcribe/`** (Nova-3 setup, ALLOWED_TYPES list) with the persistence layer stripped — for the take-home we don't keep transcripts. Restyled to the saguaro/mojave-green palette and converted to inline SVGs (project doesn't pull in lucide-react).
 
 **Live verification (2026-05-05):** generated a 14s test recording via macOS `say`, dropped it into the form on production. Transcript came back ~2s later, landed in the textarea verbatim, drafting proceeded normally.
 

@@ -1,7 +1,7 @@
 -- Greenscape Quote Agent — initial schema
 -- Per docs/03-architecture.md
 -- All tables live under the `greenscape` schema for clean isolation
--- from other apps on this shared Supabase project (SchilderGroei, Lead System).
+-- from other apps on this shared Supabase project (other internal projects).
 
 create schema if not exists greenscape;
 

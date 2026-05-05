@@ -11,7 +11,7 @@
 | Field | Value |
 |---|---|
 | Name | Dirk Tunderman |
-| Email | dirk.tunderman@outlook.com |
+| Email | test@example.com |
 | Phone | +31 6 14554096 |
 | Project address | 5234 E Lincoln Dr, Paradise Valley, AZ 85253 |
 | Project type | Custom pizza oven + small kitchenette |

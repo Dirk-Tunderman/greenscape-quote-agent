@@ -30,7 +30,7 @@ Tests: minimal scope, single category, fire-pit-only. Should produce ~5-7 line i
 | Field | Value |
 |---|---|
 | **Name** | Dirk Tunderman |
-| **Email** | dirk.tunderman@outlook.com |
+| **Email** | test@example.com |
 | **Phone** | +31 6 14554096 |
 | **Project address** | 3024 N 44th St, Phoenix, AZ 85018 |
 | **Project type** | Fire pit / fire feature |
@@ -57,7 +57,7 @@ Tests: multi-category bundle, irrigation + patio + pergola, no render trigger bu
 | Field | Value |
 |---|---|
 | **Name** | Dirk Tunderman |
-| **Email** | dirk.tunderman@outlook.com |
+| **Email** | test@example.com |
 | **Phone** | +31 6 14554096 |
 | **Project address** | 7456 E Rancho Vista Dr, Scottsdale, AZ 85251 |
 | **Project type** | Patio |
@@ -88,7 +88,7 @@ Tests: render flag (`needs_render=true`), multi-category, outdoor kitchen pricin
 | Field | Value |
 |---|---|
 | **Name** | Dirk Tunderman |
-| **Email** | dirk.tunderman@outlook.com |
+| **Email** | test@example.com |
 | **Phone** | +31 6 14554096 |
 | **Project address** | 9842 E Calle de Valle, Scottsdale, AZ 85255 |
 | **Project type** | Full backyard rebuild |
@@ -133,7 +133,7 @@ Tests: agent's `flag_ambiguity` skill on intentionally minimal input. Should sur
 | Field | Value |
 |---|---|
 | **Name** | Dirk Tunderman |
-| **Email** | dirk.tunderman@outlook.com |
+| **Email** | test@example.com |
 | **Phone** | +31 6 14554096 |
 | **Project address** | 1118 W Roma Ave, Phoenix, AZ 85013 |
 | **Project type** | Patio |
@@ -158,7 +158,7 @@ Tests: `match_pricing` handling of `is_custom = true`. Should produce a quote wh
 | Field | Value |
 |---|---|
 | **Name** | Dirk Tunderman |
-| **Email** | dirk.tunderman@outlook.com |
+| **Email** | test@example.com |
 | **Phone** | +31 6 14554096 |
 | **Project address** | 5234 E Lincoln Dr, Paradise Valley, AZ 85253 |
 | **Project type** | Other |

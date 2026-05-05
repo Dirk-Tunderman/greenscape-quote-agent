@@ -219,7 +219,7 @@ Per `superpowers:verification-before-completion` skill (read it):
 - Supabase `greenscape` schema with 6 tables, RLS, triggers, 58 line items, 5 customers seeded
 - Agent skill chain (5 skills + orchestrator) verified end-to-end via 2 integration tests
 - React-pdf branded template (8 sections, fonts fall back to Helvetica/Times — known issue)
-- Anthropic key currently SchilderGroei's (temp reuse; swap on teardown)
+- Anthropic key currently a shared's (temp reuse; swap on teardown)
 - Total Anthropic spend so far: ~$0.50
 
 ## STEP 7 — User preferences (from CLAUDE.md auto-loaded)

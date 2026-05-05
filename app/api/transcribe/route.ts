@@ -1,7 +1,7 @@
 /**
  * POST /api/transcribe — multipart audio file → Deepgram Nova-3 transcript.
  *
- * Adapted from lead-system/tools/src/app/api/transcribe (no DB persistence —
+ * Adapted from <other-internal-project>/tools/src/app/api/transcribe (no DB persistence —
  * we don't keep transcripts; the caller writes the result straight into the
  * site-walk-notes textarea on /quotes/new).
  *

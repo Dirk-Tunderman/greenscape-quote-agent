@@ -184,12 +184,12 @@ Per-quote cap of $0.50 is enforced **before** the corrective retry — if you bl
 
 | Var | Required | Source |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | yes | currently SchilderGroei's key (1-week temp reuse) |
+| `ANTHROPIC_API_KEY` | yes | currently a shared's key (1-week temp reuse) |
 | `SUPABASE_URL` | yes | shared instance |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | shared instance — bypasses RLS in API routes |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | same as above |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | shared anon key |
-| `DEEPGRAM_API_KEY` | yes (audio) | shared with `tools.tunderman.cc`. Required for `POST /api/transcribe` to do anything other than 500. |
+| `DEEPGRAM_API_KEY` | yes (audio) | shared with `<internal-tools-domain>`. Required for `POST /api/transcribe` to do anything other than 500. |
 | `NEXT_PUBLIC_APP_URL` | optional | informational |
 
 `.env.example` is in the repo. `.env.local` and `/opt/.../​.env` are gitignored / never committed.

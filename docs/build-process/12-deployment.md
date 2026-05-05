@@ -10,8 +10,8 @@ Canonical reference for the deployment infrastructure. Owner: **Chat C**. Read t
 |---|---|
 | Public URL | **https://quote-agent.tunderman.cc** |
 | TLS | Caddy auto-Let's-Encrypt (issuer `E7`, valid until 2026-08-03; auto-renews) |
-| Server | Hetzner Server 1 (`157.90.124.14`, `ubuntu-4gb-nbg1-2`) |
-| Server is shared with | SchilderGroei production + 4 lead-website APIs (do **not** disrupt) |
+| Server | Hetzner Server 1 (`<HETZNER_IP>`, `<hetzner-instance>`) |
+| Server is shared with | the parent platform production + 4 lead-website APIs (do **not** disrupt) |
 | App directory | `/opt/greenscape-quote-agent/` |
 | systemd unit | `greenscape-quote-agent.service` |
 | Internal port | `3100` (bound to `127.0.0.1` only — never directly exposed) |
@@ -29,7 +29,7 @@ browser
        │
        ▼
   Cloudflare DNS (gray cloud — DNS-only, no proxy)
-       │  resolves A to 157.90.124.14
+       │  resolves A to <HETZNER_IP>
        ▼
   Hetzner Cloud Firewall (firewall-1)
        │  inbound ports allowed: 22, 80, 443
@@ -53,7 +53,7 @@ browser
 
 ---
 
-## File layout on `157.90.124.14`
+## File layout on `<HETZNER_IP>`
 
 | Path | Owner | Purpose | Touched by |
 |---|---|---|---|
@@ -74,12 +74,12 @@ systemd unit ownership and the .env file ownership are intentionally `root:root`
 
 ## DNS
 
-- **Zone:** `tunderman.cc` (Cloudflare, `linda.ns.cloudflare.com` / `vicky.ns.cloudflare.com`)
-- **Record:** `A quote-agent → 157.90.124.14`
+- **Zone:** `tunderman.cc` (Cloudflare, `<ns-1>.ns.cloudflare.com` / `<ns-2>.ns.cloudflare.com`)
+- **Record:** `A quote-agent → <HETZNER_IP>`
 - **Proxy status:** **DNS-only (gray cloud)** — required so Caddy can complete the Let's Encrypt HTTP-01 / TLS-ALPN challenge. If anyone toggles this to "proxied" (orange cloud), cert renewal will start failing within ~60 days and the site will eventually return TLS errors.
 - **Comment on the record:** `L&S take-home temp deploy. Remove via scripts/teardown.sh.`
 
-To inspect: `dig +short quote-agent.tunderman.cc` should always return `157.90.124.14`.
+To inspect: `dig +short quote-agent.tunderman.cc` should always return `<HETZNER_IP>`.
 
 ---
 
@@ -99,7 +99,7 @@ quote-agent.tunderman.cc {
 **Editing rules:**
 1. Touch only the lines between the sentinel markers.
 2. After any edit: `caddy validate --config /etc/caddy/Caddyfile`.
-3. Apply with `systemctl reload caddy` — never `restart`. Reload is zero-downtime; restart drops connections for SchilderGroei and the lead websites.
+3. Apply with `systemctl reload caddy` — never `restart`. Reload is zero-downtime; restart drops connections for the parent platform and the lead websites.
 4. If you need a backup before editing: `cp /etc/caddy/Caddyfile /tmp/Caddyfile.before-<timestamp>`. Several pre-change snapshots already exist in `/tmp/` from Chat C's prep.
 
 ---
@@ -130,7 +130,7 @@ WantedBy=multi-user.target
 ```
 
 **Why these choices:**
-- `User=root` — matches the existing SchilderGroei convention on this box. It's a temporary box, not worth introducing a new user.
+- `User=root` — matches the existing the existing project convention on this box. It's a temporary box, not worth introducing a new user.
 - `HOSTNAME=127.0.0.1` — Next.js `next start` honors `HOSTNAME` and `PORT`. Binding to loopback means the only external entry point is Caddy, even if the Hetzner Cloud Firewall changes.
 - `EnvironmentFile=-/opt/greenscape-quote-agent/.env` — the leading `-` makes the file optional. The service starts even without an `.env`; missing keys surface as runtime errors at first request, not boot.
 - `Restart=on-failure` (not `always`) — if the unit exits 0 (graceful) we don't restart; if it crashes we do.
@@ -160,7 +160,7 @@ Builds locally → rsyncs `.next/standalone/`, `.next/static/`, `public/`, `pack
 
 **From the server itself:**
 ```bash
-ssh root@157.90.124.14
+ssh root@<HETZNER_IP>
 cd /path/to/checkout
 ./scripts/deploy.sh --local
 ```
@@ -181,10 +181,10 @@ Currently expected keys (per Chat A's wiring):
 
 | Key | Source | Required for |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | `~/Desktop/system/credentials.md` (SchilderGroei key reused per STATUS Open Decision #1) | agent skill chain |
+| `ANTHROPIC_API_KEY` | `~/Desktop/system/credentials.md` (<other-project> key reused per STATUS Open Decision #1) | agent skill chain |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | credentials.md (shared instance) | DB access (server-side) |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | credentials.md | client SDK init |
-| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | credentials.md (verified domain `notifications.tunderman.io`) | proposal email send |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | credentials.md (verified domain `<your-verified-domain>`) | proposal email send |
 | `NEXT_PUBLIC_APP_URL` | `https://quote-agent.tunderman.cc` | absolute links in emailed PDFs |
 | `GREENSCAPE_ROC_LICENSE`, `GREENSCAPE_INSURANCE` | research-driven defaults (D26-D30) | proposal generation |
 
@@ -207,16 +207,16 @@ When that switch happens, the live URL also requires (a) a populated `.env` and 
 Always run all of these after a deploy. Don't ship without each one returning the expected result.
 
 ```bash
-ssh root@157.90.124.14 'systemctl is-active greenscape-quote-agent'   # → active
-ssh root@157.90.124.14 'curl -fsS http://127.0.0.1:3100 | head -c 200'  # → HTML
+ssh root@<HETZNER_IP> 'systemctl is-active greenscape-quote-agent'   # → active
+ssh root@<HETZNER_IP> 'curl -fsS http://127.0.0.1:3100 | head -c 200'  # → HTML
 
 curl -sS -o /dev/null -w "HTTP %{http_code}\n" https://quote-agent.tunderman.cc/   # → 200
 echo | openssl s_client -servername quote-agent.tunderman.cc \
   -connect quote-agent.tunderman.cc:443 2>/dev/null \
   | openssl x509 -noout -subject -issuer -dates                                     # cert sane
 
-# Sanity: SchilderGroei + lead-website services still healthy
-ssh root@157.90.124.14 'for s in schildergroei-api schildergroei-web willemschilderwerken-api caddy; do echo $s $(systemctl is-active $s); done'
+# Sanity: the parent platform + lead-website services still healthy
+ssh root@<HETZNER_IP> 'for s in <other-service>-api <other-service>-web <other-service-2>-api caddy; do echo $s $(systemctl is-active $s); done'
 ```
 
 ---
@@ -237,14 +237,14 @@ ssh root@157.90.124.14 'for s in schildergroei-api schildergroei-web willemschil
 
 ## Isolation rules (server is shared)
 
-This box runs SchilderGroei production + 4 lead-website APIs. **Do not** under any circumstance:
+This box runs the parent platform production + 4 lead-website APIs. **Do not** under any circumstance:
 
 - Edit any non-greenscape Caddy site block.
-- Touch any `schildergroei-*`, `willemschilderwerken-*`, `bossche-schilderwerken-*`, `schildersbedrijf-tijmen-*`, `veluws-schilderwerk-*` systemd units.
+- Touch any `<other-project>-*`, `<other-service-A>-*`, `<other-service-C>-*`, `<other-service-B>-*`, `<other-service-D>-*` systemd units.
 - Run `systemctl restart caddy` (use `reload`).
 - Run `apt upgrade` or any system-wide package change.
 - Modify `/etc/ssh/`, the firewall config, or the Hetzner Cloud Firewall rules without explicit user approval.
-- Deploy to `/opt/schildergroei*` or `/var/www/*` — those are not ours.
+- Deploy to `/opt/<other-service>*` or `/var/www/*` — those are not ours.
 
 Pre-change state snapshots from Chat C live in `/tmp/services-before.txt`, `/tmp/ports-before.txt`, `/tmp/Caddyfile.before`, `/tmp/Caddyfile.before-greenscape` for diff-after-the-fact verification.
 
@@ -258,7 +258,7 @@ Run `./scripts/teardown.sh` from a workstation. It is **idempotent** and **confi
 2. Removes `/opt/greenscape-quote-agent/`
 3. Removes the Caddy site block (matched by sentinel markers); validates and reloads Caddy
 4. Reminds you to delete the Cloudflare `quote-agent.tunderman.cc` A record (manual — no API token required)
-5. Verifies SchilderGroei + lead-website services are still healthy
+5. Verifies the parent platform + lead-website services are still healthy
 
 After step 4 completes, the URL stops resolving entirely. Until then, it will TLS-fail because there's no listener.
 
@@ -268,7 +268,7 @@ After step 4 completes, the URL stops resolving entirely. Until then, it will TL
 
 If this deploy outlives the take-home demo and becomes longer-lived, here's what to revisit:
 
-1. **Replace the reused SchilderGroei Anthropic key** with a project-scoped key — required by the credentials.md project-scoping rule. Update `.env` on the server, `systemctl restart`. No other change needed.
+1. **Replace the reused the parent platform Anthropic key** with a project-scoped key — required by the credentials.md project-scoping rule. Update `.env` on the server, `systemctl restart`. No other change needed.
 2. **Add `systemctl enable greenscape-quote-agent`** so the service comes back up after server reboots. Skipped intentionally for the temp-deploy phase.
 3. **Add minimal access logs** if you ever need to debug who hit what. Caddy supports per-site logging via a `log` directive inside the site block; the format is JSON to stdout by default. No infra change required.
 4. **Rotate the Cloudflare API token** — currently `~/.zshrc` and `credentials.md` have a token returning `9109 Invalid access token` for the Zones API. Not blocking (DNS was added manually) but worth fixing so future automation can write DNS without the manual step.
@@ -286,4 +286,4 @@ If this deploy outlives the take-home demo and becomes longer-lived, here's what
 | `scripts/teardown.sh` | end-of-demo cleanup |
 | `STATUS.md` (Chat C row, Deploy URL, Recent completions) | live state |
 
-Everything else on the server side (the systemd unit, the Caddy block, the DNS record, the deploy-target dir) is on `157.90.124.14`. There is no Chat C source code to "deploy"; this layer is config + docs.
+Everything else on the server side (the systemd unit, the Caddy block, the DNS record, the deploy-target dir) is on `<HETZNER_IP>`. There is no Chat C source code to "deploy"; this layer is config + docs.

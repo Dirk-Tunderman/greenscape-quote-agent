@@ -59,7 +59,7 @@ auto-send to the customer).
 | Hosting | Hetzner VPS (mixed-use) | Existing infra; systemd service behind Caddy reverse proxy; satisfies brief's public deployment requirement |
 | Database | Supabase (Postgres) | Managed Postgres, generous free tier, built-in auth + storage, fits brief's persistent storage requirement |
 | LLM | Anthropic Claude (Sonnet + Haiku) | Sonnet for quality on generation tasks, Haiku for cost on classification/validation. Cost-aware multi-model strategy is a brief bonus criterion. |
-| Audio | Deepgram Nova-3 | Already wired into Tunderman stack (`tools.tunderman.cc`), one-day port via `POST /api/transcribe` (D43) |
+| Audio | Deepgram Nova-3 | Already wired into internal stack (`<internal-tools-domain>`), one-day port via `POST /api/transcribe` (D43) |
 | PDF | `react-pdf` | PDF buffer from React components → uploaded to Supabase Storage → signed URL returned to Marcus (D32 — no auto-send to customer) |
 | Schema validation | `zod` | Runtime validation of LLM outputs against expected structure |
 | Styling | Tailwind CSS | Fast UI iteration, consistent design tokens |

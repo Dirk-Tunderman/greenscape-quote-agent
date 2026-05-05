@@ -44,8 +44,8 @@ Then read these skills (they tell you HOW to work):
 
 After reading, surface these decisions to the user:
 
-1. **Anthropic API key:** new dedicated key (per `~/Desktop/system/credentials.md` project-scoping rule) OR temporarily reuse SchilderGroei's (~$1-3 total cost across dev + demo)?
-2. **Public URL format:** IP:port (default for temporary 1-week deploy) OR subdomain (`quote-agent.tunderman.io` — adds ~30 min DNS work)?
+1. **Anthropic API key:** new dedicated key (per `~/Desktop/system/credentials.md` project-scoping rule) OR temporarily reuse <other-project>'s (~$1-3 total cost across dev + demo)?
+2. **Public URL format:** IP:port (default for temporary 1-week deploy) OR subdomain (`quote-agent.<your-domain>` — adds ~30 min DNS work)?
 3. **Are Chat B (frontend) and Chat C (deploy) running in parallel?** If yes, you coordinate via STATUS.md + git. If you're solo, you absorb their work into your task list.
 
 Wait for answers before Phase 0.
