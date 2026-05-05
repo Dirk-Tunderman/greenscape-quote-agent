@@ -327,3 +327,27 @@ These decisions came after the initial mock-backed deploy went live and the user
 **Considered:** Keeping the enum + a separate `categories` registry table. Rejected as over-engineered for the shipped surface: a single CHECK constraint + dynamic agent prompt is simpler and the UI already enforces non-empty + shape via normalization.
 
 **Live verification (2026-05-05):** POSTed a new "outdoor lighting" category with a Path light bollard line item. Returned 201; `SELECT DISTINCT category FROM greenscape.line_items` confirms `outdoor_lighting` is present alongside the original 9. Next agent run will see it.
+
+### D40 · Catalog edit + soft-delete via PATCH and DELETE per row
+
+**Why:** D38 + D39 shipped Add. User requested the matching Edit + Remove so the catalog is full CRUD without a code change.
+
+**What we shipped:**
+- `PATCH /api/line-items/[id]`: partial update — name, description, category, unit, unit_price, item_type. Same zod schema + snake_case category normalization as POST.
+- `DELETE /api/line-items/[id]`: soft delete via `UPDATE line_items SET active = false WHERE id = ?`. Returns `{ok: true}`.
+- `EditableLineItemRow.tsx` (new client component): each catalog row has `Edit` + `Remove` buttons in a new Actions column. Edit toggles the row into a full-width form (name / category / unit / unit_price / item_type / description) with Save/Cancel. Remove triggers a `confirm()` then DELETE.
+- Catalog page `/admin/line-items` table refactored to delegate row rendering to the new client component. Header gains an Actions column.
+
+**Why soft delete (not hard):**
+- `quote_line_items.line_item_id` FK references catalog rows.
+- Snapshot fields (`line_item_name_snapshot`, `unit_price_snapshot`) on `quote_line_items` mean historical quotes remain coherent even when the source catalog row goes inactive.
+- The catalog page query already filters `active = true`, so the row simply disappears from the list on next refresh.
+- `match_pricing.lookupLineItems` also filters `active = true`, so the agent stops finding it on future runs.
+- Hard delete would either break the FK or cascade-delete history.
+
+**Live verification (2026-05-05):**
+- PATCH on the previously-added LED bollard: changed `unit_price` 185 → 195 and updated description. Returned 200 with the updated row.
+- DELETE on the same item: returned `{ok: true}`.
+- `GET /api/line-items` post-delete: 59 active items (down from 60); `outdoor_lighting` category no longer in the active list (was the only item in it).
+
+**The agent's view of these changes is automatic:** `match_pricing.getCategories()` runs on every quote and returns only categories with active items. PATCHed unit prices flow through `lookupLineItems` immediately. DELETEd items disappear from search results. No restart, no cache invalidation.

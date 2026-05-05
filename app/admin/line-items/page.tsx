@@ -1,9 +1,10 @@
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/Card";
 import { listLineItems } from "@/data/store";
-import { formatCurrency, titleCase } from "@/lib/utils";
+import { titleCase } from "@/lib/utils";
 import type { LineItem } from "@/lib/types";
 import { AddLineItemForm } from "./AddLineItemForm";
+import { EditableLineItemRow } from "./EditableLineItemRow";
 
 export const metadata = {
   title: "Catalog · Greenscape Quote Agent",
@@ -47,31 +48,17 @@ export default async function LineItemsPage() {
                     <Th className="text-left hidden md:table-cell">Description</Th>
                     <Th className="text-right">Unit</Th>
                     <Th className="text-right">Unit price</Th>
+                    <Th className="text-right w-44">Actions</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {catItems.map((item, idx) => (
-                    <tr
+                    <EditableLineItemRow
                       key={item.id}
-                      className={
-                        idx % 2 === 0
-                          ? "bg-caliche-white"
-                          : "bg-adobe/40"
-                      }
-                    >
-                      <Td className="font-medium text-saguaro-black">{item.name}</Td>
-                      <Td className="text-stone-gray hidden md:table-cell">
-                        {item.description}
-                      </Td>
-                      <Td className="text-right text-stone-gray whitespace-nowrap">
-                        {formatUnit(item.unit)}
-                      </Td>
-                      <Td className="text-right tnum text-saguaro-black font-medium">
-                        {item.unit_price === 0 && item.name.includes("overhead")
-                          ? "incl."
-                          : formatCurrency(item.unit_price)}
-                      </Td>
-                    </tr>
+                      item={item}
+                      existingCategories={existingCategories}
+                      rowBgClass={idx % 2 === 0 ? "bg-caliche-white" : "bg-adobe/40"}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -91,27 +78,6 @@ function Th({ children, className = "" }: { children: React.ReactNode; className
       {children}
     </th>
   );
-}
-
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <td className={`px-4 py-3 border-b border-adobe last:border-b-0 ${className}`}>
-      {children}
-    </td>
-  );
-}
-
-function formatUnit(unit: LineItem["unit"]): string {
-  return (
-    {
-      sq_ft: "sq ft",
-      linear_ft: "linear ft",
-      each: "each",
-      zone: "zone",
-      hour: "hour",
-      lump_sum: "lump",
-    } as Record<LineItem["unit"], string>
-  )[unit];
 }
 
 function groupByCategory(items: LineItem[]): Array<{ category: string; items: LineItem[] }> {
