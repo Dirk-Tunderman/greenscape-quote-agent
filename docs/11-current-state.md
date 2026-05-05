@@ -12,16 +12,20 @@ If something here disagrees with 00-10, **this doc wins** — and 00-10 should b
 
 - **Live URL:** https://quote-agent.tunderman.cc (Hetzner VPS, Caddy + LE cert + systemd)
 - **Repo:** https://github.com/Dirk-Tunderman/greenscape-quote-agent (private)
-- **Status:** End-to-end live. Frontend reads from real DB (no mocks), agent triggers from form submit, line items + sections + customer fields all editable inline, PDF download replaces the email send (re-runnable from any non-outcome state).
-- **End-to-end verified:** Multiple agent runs in production across $3.5K–$59K range. Browser-driven flow confirmed: form → agent → edit line items / sections / customer → PDF download → re-edit → re-download.
-- **Anthropic spend so far:** ~$1 across all dev + integration tests
+- **Status:** End-to-end live. Frontend reads from real DB (no mocks), agent triggers from form submit, line items + sections + customer fields all editable inline, PDF download replaces the email send (re-runnable from any non-outcome state). Audio site-walks transcribe via Deepgram into the same notes textarea (D43). Catalog is full CRUD via UI. PDF renders the actual proposal_markdown sections with a dedicated page for the pricing table (D45–D46). Quotes can be deleted from the list view with confirmation (D48).
+- **End-to-end verified:** Multiple agent runs in production across $3.5K–$59K range. Browser-driven flow confirmed: form → optional audio upload → agent → edit line items / sections / customer → PDF download → re-edit → re-download → optional delete.
+- **Anthropic spend so far:** ~$1 across all dev + integration tests · Deepgram spend: trivial (a few seconds of audio per test)
 
 ---
 
 ## What it does end-to-end
 
 ```
-Marcus pastes notes  →  /quotes/new  →  POST /api/agent/draft
+Marcus pastes notes        ┐
+   OR                      │
+Drops audio recording      ┼→  /quotes/new  →  POST /api/agent/draft
+   (POST /api/transcribe)  │
+   OR both                 ┘
                                               │
                                               ▼
                           ┌──────────────────────────────────────┐
@@ -146,9 +150,12 @@ All routes run on Node.js (`runtime = "nodejs"`). All consume/return JSON.
 | GET | `/api/quotes` | list `QuoteSummary[]` with optional `?status=` filter | 30s default |
 | GET | `/api/quotes/[id]` | full `QuoteDetail` (joins customer + line_items + artifacts + audit_log) | 30s default |
 | PATCH | `/api/quotes/[id]` | edit line items (full-list drop+insert) / proposal_markdown / outcome / status — auto-recomputes total | 30s default |
+| DELETE | `/api/quotes/[id]` | hard delete: removes PDF blob from Storage, deletes quote row (DB cascades children). Blocked on `accepted` (returns 409). D48. | 30s default |
 | POST | `/api/quotes/[id]/send` | render PDF → upload to Storage → return signed URL. **No email send.** Re-runnable from `draft_ready`/`validation_failed`/`sent`. | 60s |
 | PATCH | `/api/customers/[id]` | edit any subset of `{name, email, phone, address}` for the customer record | 30s default |
 | GET | `/api/line-items` | catalog read (ordered by category, unit_price) | 30s default |
+| POST/PATCH/DELETE | `/api/line-items[/[id]]` | full CRUD on the catalog (D38–D40). DELETE is soft (`active=false`) so quote history stays coherent. | 30s default |
+| POST | `/api/transcribe` | multipart audio → Deepgram Nova-3 → `{transcript, duration_seconds}`. No DB persistence (D43). | 300s |
 
 **Request/response shapes** are the TS types in `lib/types.ts` — that file is the API contract.
 
@@ -182,8 +189,9 @@ Per-quote cap of $0.50 is enforced **before** the corrective retry — if you bl
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | shared instance — bypasses RLS in API routes |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | same as above |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | shared anon key |
-| `RESEND_API_KEY` | yes | shared `re_cfHypG2M_M12...` |
-| `RESEND_FROM_EMAIL` | yes | `Greenscape Pro <quotes@notifications.tunderman.io>` |
+| `RESEND_API_KEY` | yes (legacy) | shared `re_cfHypG2M_M12...` — retained but unused by any live route (D32) |
+| `RESEND_FROM_EMAIL` | yes (legacy) | `Greenscape Pro <quotes@notifications.tunderman.io>` |
+| `DEEPGRAM_API_KEY` | yes (audio) | shared with `tools.tunderman.cc`. Required for `POST /api/transcribe` to do anything other than 500. |
 | `NEXT_PUBLIC_APP_URL` | optional | informational |
 
 `.env.example` is in the repo. `.env.local` and `/opt/.../​.env` are gitignored / never committed.
@@ -205,7 +213,7 @@ The systemd unit lives at `/etc/systemd/system/greenscape-quote-agent.service` (
 
 These were explicitly cut from the 24h MVP per `docs/00-project-brief.md`. Each maps to a Phase-2 swap path documented in `docs/06-assumptions.md`.
 
-- ❌ Voice memo input + transcription (Phase 2 — Deepgram)
+- ✅ ~~Voice memo input + transcription~~ — shipped via Deepgram Nova-3, see D43
 - ❌ Customer-facing email send on approval (Phase 2 — `lib/email.ts` Resend wrapper retained, no live route invokes it; D32)
 - ❌ GHL CRM push on approval (Phase 2 — needs GHL OAuth)
 - ❌ Stripe deposit invoice generation (Phase 2)
@@ -221,6 +229,8 @@ These were explicitly cut from the 24h MVP per `docs/00-project-brief.md`. Each 
 ## What it does NOT do (limitations / known issues)
 
 - **Inter / Cormorant fonts in PDF** — currently uses Helvetica + Times-Roman built into react-pdf. The Google Fonts CDN URL we initially registered returned 404. Day-1 swap once a local font asset pipeline lands.
+- **PDF body blocks must wrap each block in a `<View>`** — react-pdf's `<Text>` doesn't reliably reserve block height when its content wraps, so consecutive `<Text>` siblings can paint on top of each other (D46). The current template wraps every paragraph and bullet block in a View; if you add new block types here keep that rule.
+- **Audio uploads have no pre-/post-transcription quality checks** — D41 added input-quality gating for the typed-notes path; the audio path doesn't yet check duration/size pre-Deepgram or transcript length/gibberish post-Deepgram. Tracked in `docs/15-future-extensions.md`.
 - **Cost tracking is per skill call only** — there's no daily/monthly aggregate yet. Surface in admin UI is per-quote (`total_cost_usd`).
 - **Validate-on-fail retry budget is 1** — if both attempts fail, status `validation_failed` and Marcus sees the issues in admin. Not a gradient.
 - **Customer dedup is by email only** — `(name, email, address)` collisions go to the same row.
@@ -245,7 +255,10 @@ These were explicitly cut from the 24h MVP per `docs/00-project-brief.md`. Each 
 | Why is editing not locked when a PDF is generated? | `docs/09-decision-log.md` D33 |
 | Why don't we email the customer ourselves? | `docs/09-decision-log.md` D32 |
 | Why is the proposal's "Detailed Scope & Pricing" section auto-derived? | `docs/09-decision-log.md` D34 |
-| How does the proposal template (PDF) look? | `lib/pdf/template.tsx` |
+| How does the proposal template (PDF) look? | `lib/pdf/template.tsx` (rendering) + `lib/proposal/sections.ts` (parser shared with the editor — D45) |
+| How does audio upload work? | `app/api/transcribe/route.ts` + `components/AudioUploader.tsx` — D43 |
+| Why does Modal use createPortal? | `components/Modal.tsx` head comment + `docs/09-decision-log.md` D47 |
+| How does delete work? | `DELETE` handler in `app/api/quotes/[id]/route.ts` + `app/quotes/DeleteQuoteButton.tsx` — D48 |
 | Frontend pages | `app/quotes/`, `app/admin/`, `components/` |
 | Frontend ↔ API wire-up | `data/store.ts` (the seam — every page/action goes through here) |
 | Inline-edit patterns | `app/quotes/[id]/LineItemsTable.tsx` (line items), `app/quotes/[id]/CustomerCard.tsx` (customer fields), `app/quotes/[id]/ProposalEditor.tsx` (proposal sections) |
@@ -268,7 +281,7 @@ npm run dev                  # → http://localhost:3000
 Dev server picks up `.env.local` automatically. Hot reload works for both pages and API routes.
 
 To run integration tests against a clean DB:
-1. Apply the 3 migrations under `supabase/migrations/` in order
+1. Apply all 5 migrations under `supabase/migrations/` in order (001 schema → 002 catalog seed → 003 research updates → 004 revert payment schedule → 005 category enum→text)
 2. Curl `POST /api/agent/draft` with a `DraftRequestBody` (see `lib/types.ts`)
 3. Read back `GET /api/quotes/{id}` to inspect the orchestrator output
 

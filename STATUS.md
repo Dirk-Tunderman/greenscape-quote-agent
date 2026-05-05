@@ -6,7 +6,7 @@
 
 ## Last updated
 
-`2026-05-05` · planning chat — payment schedule reverted to 50/50 (matches assignment line 71 · D37); POST /api/line-items live for runtime catalog adds (D38); future-extensions doc added (`docs/15-future-extensions.md`)
+`2026-05-05` · planning chat — late-day v3 polish pass: audio upload via Deepgram (D43), project_type → free-text + relabelled "Project title" (D44), PDF now renders proposal_markdown sections with dedicated pricing page + payment schedule % only (D45–D46), Modal in a portal so it escapes backdrop-filter ancestors (D47), per-row delete on the quotes list with confirmation (D48). Documentation refreshed (`docs/11-current-state.md`, `LEARNING.md`).
 Next update: pre-Loom code-review pass (if desired) → submission
 
 ---
