@@ -1,0 +1,192 @@
+"use client";
+
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { Field, Input, Select, Textarea } from "@/components/Input";
+import { Button } from "@/components/Button";
+import { createDraftAction, EMPTY_FORM_STATE, type NewQuoteFormState } from "./actions";
+
+const PROJECT_TYPES = [
+  "Patio",
+  "Pergola",
+  "Outdoor kitchen",
+  "Fire pit / fire feature",
+  "Water feature",
+  "Artificial turf",
+  "Irrigation",
+  "Retaining wall",
+  "Full backyard rebuild",
+  "Other",
+];
+
+const BUDGET_TIERS = [
+  { value: "", label: "Not stated" },
+  { value: "under_10k", label: "Under $10K" },
+  { value: "10_30k", label: "$10K – $30K" },
+  { value: "30_60k", label: "$30K – $60K" },
+  { value: "60_100k", label: "$60K – $100K" },
+  { value: "over_100k", label: "Over $100K" },
+];
+
+export function NewQuoteForm() {
+  const [state, formAction] = useActionState<NewQuoteFormState, FormData>(
+    createDraftAction,
+    EMPTY_FORM_STATE,
+  );
+
+  const errors: Record<string, string> = state?.fieldErrors ?? {};
+  const values: Record<string, string> = state?.values ?? {};
+
+  return (
+    <form action={formAction} className="space-y-8">
+      <fieldset className="space-y-5">
+        <legend className="font-serif text-2xl text-saguaro-black mb-2">
+          Customer
+        </legend>
+        <div className="grid md:grid-cols-2 gap-5">
+          <Field label="Name" htmlFor="customer_name" required error={errors.customer_name}>
+            <Input
+              id="customer_name"
+              name="customer_name"
+              defaultValue={values.customer_name ?? ""}
+              autoComplete="name"
+              invalid={Boolean(errors.customer_name)}
+              placeholder="Claire Henderson"
+            />
+          </Field>
+          <Field label="Email" htmlFor="customer_email" required error={errors.customer_email}>
+            <Input
+              id="customer_email"
+              name="customer_email"
+              type="email"
+              defaultValue={values.customer_email ?? ""}
+              autoComplete="email"
+              invalid={Boolean(errors.customer_email)}
+              placeholder="claire@example.com"
+            />
+          </Field>
+          <Field label="Phone" htmlFor="customer_phone" error={errors.customer_phone}>
+            <Input
+              id="customer_phone"
+              name="customer_phone"
+              type="tel"
+              defaultValue={values.customer_phone ?? ""}
+              autoComplete="tel"
+              placeholder="(602) 555-0148"
+            />
+          </Field>
+          <Field
+            label="Project address"
+            htmlFor="customer_address"
+            required
+            error={errors.customer_address}
+          >
+            <Input
+              id="customer_address"
+              name="customer_address"
+              defaultValue={values.customer_address ?? ""}
+              autoComplete="street-address"
+              invalid={Boolean(errors.customer_address)}
+              placeholder="4421 E Camelback Rd, Phoenix, AZ 85018"
+            />
+          </Field>
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-5">
+        <legend className="font-serif text-2xl text-saguaro-black mb-2">
+          Project
+        </legend>
+        <div className="grid md:grid-cols-2 gap-5">
+          <Field label="Project type" htmlFor="project_type" required error={errors.project_type}>
+            <Select
+              id="project_type"
+              name="project_type"
+              defaultValue={values.project_type ?? ""}
+              invalid={Boolean(errors.project_type)}
+            >
+              <option value="" disabled>
+                Choose one
+              </option>
+              {PROJECT_TYPES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field
+            label="Budget signal"
+            htmlFor="budget_tier"
+            hint="Informational only — not used in agent reasoning"
+          >
+            <Select
+              id="budget_tier"
+              name="budget_tier"
+              defaultValue={values.budget_tier ?? ""}
+            >
+              {BUDGET_TIERS.map((b) => (
+                <option key={b.value} value={b.value}>
+                  {b.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+
+        <Field
+          label="Site walk notes"
+          htmlFor="raw_notes"
+          required
+          hint="Paste raw notes from the visit. Be messy — the agent will pull structured scope and surface anything it can't pin down."
+          error={errors.raw_notes}
+        >
+          <Textarea
+            id="raw_notes"
+            name="raw_notes"
+            rows={10}
+            defaultValue={values.raw_notes ?? ""}
+            invalid={Boolean(errors.raw_notes)}
+            placeholder="Site walk Mon morning — Claire wants travertine patio replacing the existing concrete slab, roughly 16x20. Cedar pergola over the dining area, lighting package..."
+          />
+        </Field>
+
+        <label className="inline-flex items-center gap-2.5 text-sm text-saguaro-black select-none cursor-pointer">
+          <input
+            type="checkbox"
+            name="hoa"
+            defaultChecked={values.hoa === "on"}
+            className="h-4 w-4 rounded border-stone-gray/40 text-mojave-green focus:ring-mojave-green/30"
+          />
+          Property is in an HOA — include submission package
+        </label>
+      </fieldset>
+
+      {state?.formError ? (
+        <div
+          role="alert"
+          className="border-l-4 border-error-brick bg-error-brick/10 px-4 py-3 text-sm text-error-brick"
+        >
+          {state.formError}
+        </div>
+      ) : null}
+
+      <div className="flex items-center justify-between border-t border-adobe pt-6">
+        <p className="text-xs text-stone-gray max-w-md">
+          Drafting typically completes in under a minute. You'll land on the
+          review page once the agent's done.
+        </p>
+        <SubmitButton />
+      </div>
+    </form>
+  );
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" size="lg" disabled={pending}>
+      {pending ? "Drafting proposal…" : "Draft proposal"}
+    </Button>
+  );
+}

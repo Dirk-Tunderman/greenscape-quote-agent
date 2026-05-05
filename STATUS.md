@@ -54,13 +54,20 @@ Phase progression (from `docs/05-build-plan.md`):
 - **Blockers:** none
 - **Waiting on:** none. Will need real `ANTHROPIC_API_KEY` in `.env.local` before first end-to-end agent run.
 
-### Chat B (Frontend Builder) — **scaffolding done (uncommitted)**
+### Chat B (Frontend Builder) — **all 4 pages shipped (mock-backed)**
 - **Owns:** all Next.js pages + components per `docs/08-design-system.md`
-- **Done:** Next.js 15 scaffold, `tsconfig.json`, `tailwind.config.ts` w/ brand tokens, `app/globals.css` w/ Cormorant + Inter, `lib/types.ts` (full API contract), `lib/utils.ts`, `lib/mocks/catalog.ts` (~80 items)
-- **Currently doing:** building pages + components against types in `lib/types.ts`
-- **Last commit:** N/A (uncommitted; will be committed by Chat B)
+- **Done:**
+  - Next.js 15 scaffold, Tailwind v3 with brand tokens, Cormorant Garamond + Inter loaded, tabular-num utility class
+  - `lib/types.ts` (full shared API contract — Chat A also editing/extending this), `lib/utils.ts` (formatters, cn helper)
+  - Mock fixtures (now in `data/mocks/`, not `lib/mocks/`): catalog (~58 items, includes 1 allowance + 1 custom per D26 heads-up), 5 customers, 5 quotes covering draft_ready / sent / accepted / lost / validation_failed states. Mock proposals updated to 9-section template per D29.
+  - Data adapter `data/store.ts` with in-memory mutable state (read + mutate paths) — swappable for `fetch()` calls when Chat A's API routes land. **No `app/api/` routes built — Chat A's territory left untouched.**
+  - **Pages:** `/quotes` (list + filters + status stats), `/quotes/new` (form w/ server action + zod validation), `/quotes/[id]` (review/edit/approve — sticky bottom approve bar, scope panel, ambiguity callout, validation panel, inline-edit line items w/ optimistic UI + recompute, markdown proposal preview/edit tabs, audit log modal, outcome tracker), `/admin/line-items` (read-only catalog grouped by category)
+  - **Server actions** for mutations: `createDraftAction`, `updateLineItemsAction`, `updateProposalAction`, `approveAndSendAction`, `setOutcomeAction` — no `/api/` conflicts
+  - **Components:** `Brand`, `Nav` (with cumulative cost display), `PageHeader`, `Card`/`CardHeader`/`CardBody`, `Button` (4 variants × 3 sizes), `Field`/`Input`/`Textarea`/`Select`, `StatusBadge` (8 statuses, color + dot + label), `Modal` (Esc + backdrop close), `EmptyState`
+  - Verified via Chrome at 1440px and 375px — no console errors on any page; >$30K render flag visible; validation_failed state disables Approve correctly
+- **Currently doing:** committing
 - **Blockers:** none
-- **Waiting on:** Chat A finalising API routes; until then Chat B reads `lib/mocks/`
+- **Waiting on:** Chat A's API routes — when ready, swap `data/store.ts` function bodies to `fetch()` against `/api/agent/draft`, `GET/PATCH /api/quotes`, `POST /api/quotes/[id]/send`. Pages don't change.
 
 ### Chat C (Hetzner Deployment) — **DONE · public URL live**
 - **Owns:** server-side prep on `157.90.124.14` (Caddy site block, systemd unit, port assignment)
@@ -111,8 +118,9 @@ Phase progression (from `docs/05-build-plan.md`):
 | 2026-05-05 | Chat C | Hello-world Next.js 14 standalone build verified loopback-reachable at `http://localhost:3100` (HTTP 200, 4231 bytes); service stopped post-verify |
 | 2026-05-05 | Chat C | Created `/etc/systemd/system/greenscape-quote-agent.service` (loopback bind, root user, optional .env, Restart=on-failure); daemon-reloaded; not enabled |
 | 2026-05-05 | Chat C | Created `/opt/greenscape-quote-agent` on Server 1 + snapshotted services, ports, Caddyfile (in `/tmp/*-before.*`) |
+| 2026-05-05 | Chat B | Shipped all 4 pages (`/quotes`, `/quotes/new`, `/quotes/[id]`, `/admin/line-items`) with mock-backed data adapter, server actions, full component library, design system per `docs/08-design-system.md`. 9-section proposal mock + allowance/custom catalog items aligned to D26-D30. No `app/api/` files — adapter is the swap point for Chat A's real API. |
 | 2026-05-05 | Chat A | Onboarded; STATUS sync; began Phase 1 (Supabase migration + backend deps) |
-| 2026-05-05 | Chat B | Scaffolded Next.js 15 + TS + Tailwind w/ brand tokens; wrote `lib/types.ts` (API contract), `lib/mocks/catalog.ts` (~80 items), `lib/utils.ts`, `.env.example` skeleton (uncommitted) |
+| 2026-05-05 | Chat B | Scaffolded Next.js 15 + TS + Tailwind w/ brand tokens; wrote `lib/types.ts` (API contract), `data/mocks/catalog.ts` (~58 items), `lib/utils.ts`, `.env.example` skeleton |
 | 2026-05-05 | planning | ⚡ Industry research integrated → schema + 9-section template (D26-D30); see HEADS-UP above |
 | 2026-05-05 | planning | `docs/10-industry-research.md` written (research sub-agent, 1466 words, 15 questions answered with primary sources) |
 | 2026-05-05 | planning | Initial commit pushed: strategy.md + docs/00-09 + STATUS.md + prompts/ |

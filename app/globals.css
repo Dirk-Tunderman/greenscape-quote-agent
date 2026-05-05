@@ -1,0 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    font-family: "Inter", -apple-system, system-ui, sans-serif;
+    background-color: #f8f4ed;
+    color: #1a1f1a;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #f8f4ed;
+    color: #1a1f1a;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+
+  /* Tabular numerals — applies to anywhere the .tnum utility is used */
+  .tnum {
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  /* Selection color */
+  ::selection {
+    background-color: #2c4a3a;
+    color: #f8f4ed;
+  }
+
+  /* Focus ring (consistent across the app) */
+  *:focus-visible {
+    outline: 2px solid #2c4a3a;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Scrollbar — restrained */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f8f4ed;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d4b896;
+    border-radius: 4px;
+    border: 2px solid #f8f4ed;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #b8623e;
+  }
+}
+
+@layer components {
+  /* The "GP" logo mark */
+  .brand-mark {
+    @apply inline-flex h-8 w-8 items-center justify-center bg-mojave-green text-caliche-white font-serif text-lg leading-none tracking-tight;
+  }
+
+  /* Subtle horizontal rule used under page titles */
+  .rule {
+    @apply h-px w-12 bg-sandstone;
+  }
+
+  /* Markdown-style proposal preview surface */
+  .prose-proposal {
+    @apply text-saguaro-black leading-relaxed;
+  }
+  .prose-proposal h1 {
+    @apply font-serif text-3xl mt-0 mb-4;
+  }
+  .prose-proposal h2 {
+    @apply font-serif text-2xl mt-8 mb-3 pb-1 border-b border-sandstone/60;
+  }
+  .prose-proposal h3 {
+    @apply font-serif text-xl mt-6 mb-2;
+  }
+  .prose-proposal p {
+    @apply my-3;
+  }
+  .prose-proposal ul {
+    @apply list-disc list-inside my-3 space-y-1;
+  }
+  .prose-proposal table {
+    @apply w-full my-4 border-collapse text-sm;
+  }
+  .prose-proposal th {
+    @apply bg-adobe font-semibold text-left px-3 py-2 border-b border-stone-gray/30;
+  }
+  .prose-proposal td {
+    @apply px-3 py-2 border-b border-adobe;
+  }
+  .prose-proposal td:not(:first-child) {
+    @apply text-right tnum;
+  }
+  .prose-proposal th:not(:first-child) {
+    @apply text-right;
+  }
+}
