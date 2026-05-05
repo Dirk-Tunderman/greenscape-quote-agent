@@ -17,24 +17,11 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Field, Input, Select, Textarea } from "@/components/Input";
+import { Field, Input, Textarea } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { AudioUploader } from "@/components/AudioUploader";
 import { createDraftAction } from "./actions";
 import { EMPTY_FORM_STATE, type NewQuoteFormState } from "./form-state";
-
-const PROJECT_TYPES = [
-  "Patio",
-  "Pergola",
-  "Outdoor kitchen",
-  "Fire pit / fire feature",
-  "Water feature",
-  "Artificial turf",
-  "Irrigation",
-  "Retaining wall",
-  "Full backyard rebuild",
-  "Other",
-];
 
 export function NewQuoteForm() {
   const [state, formAction] = useActionState<NewQuoteFormState, FormData>(
@@ -119,22 +106,20 @@ export function NewQuoteForm() {
         <legend className="font-serif text-2xl text-saguaro-black mb-2">
           Project
         </legend>
-        <Field label="Project type" htmlFor="project_type" required error={errors.project_type}>
-          <Select
+        <Field
+          label="Project type"
+          htmlFor="project_type"
+          required
+          hint="Free-form — most projects bundle categories. Write it like you'd say it."
+          error={errors.project_type}
+        >
+          <Input
             id="project_type"
             name="project_type"
             defaultValue={values.project_type ?? ""}
             invalid={Boolean(errors.project_type)}
-          >
-            <option value="" disabled>
-              Choose one
-            </option>
-            {PROJECT_TYPES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </Select>
+            placeholder="e.g. Patio + pergola refresh"
+          />
         </Field>
 
         <div className="space-y-1.5">
