@@ -251,13 +251,15 @@ export async function runDraft(body: DraftRequestBody): Promise<DraftResult> {
       audit,
     );
 
-    // 7. validate_output
+    // 7. validate_output (D42: pass custom_item_requests so the validator can
+    // enforce the Items Requiring Custom Pricing section + bleed boundary)
     let validation = await validateOutput(
       {
         proposal_markdown: proposal.proposal_markdown,
         priced_items: matchResult.priced_items,
         customer,
         payment_schedule: paymentSchedule,
+        custom_item_requests: matchResult.custom_item_requests,
       },
       audit,
     );
@@ -290,6 +292,7 @@ export async function runDraft(body: DraftRequestBody): Promise<DraftResult> {
           priced_items: matchResult.priced_items,
           customer,
           payment_schedule: paymentSchedule,
+          custom_item_requests: matchResult.custom_item_requests,
         },
         audit,
       );

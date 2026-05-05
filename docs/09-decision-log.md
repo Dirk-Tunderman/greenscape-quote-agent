@@ -328,6 +328,40 @@ These decisions came after the initial mock-backed deploy went live and the user
 
 **Live verification (2026-05-05):** POSTed a new "outdoor lighting" category with a Path light bollard line item. Returned 201; `SELECT DISTINCT category FROM greenscape.line_items` confirms `outdoor_lighting` is present alongside the original 9. Next agent run will see it.
 
+### D42 · Custom items are Marcus-internal only; never appear in customer proposal
+
+**Why:** Test case 03 (full backyard rebuild) failed validation because the agent described scope items in proposal prose (gas line, electrical, stucco finish) that weren't priced — they were in `custom_item_requests` because the catalog didn't have entries for them. Validator correctly caught the contradiction (`factual_unsupported_claims` × 3). The user pushed back on my first proposed fix (a customer-facing "Items Requiring Custom Pricing" section) because: *"we can never put it on the proposal — we don't have the line items to calculate it. We can just notify the user that he has set it; he himself needs to add them."*
+
+**The right design:** custom items are **internal-only**. The customer-facing proposal stays clean (only what's priced + what's excluded). Marcus sees the custom items in a dedicated UI card on the quote review page and decides per item: add as manual line item OR follow up separately OR ignore.
+
+**What we shipped:**
+
+1. **`lib/skills/generate_proposal.ts`** — STRICT system prompt rule: items in `custom_item_requests` MUST NOT appear anywhere in the proposal. Customer-facing proposal contains only priced items + explicit exclusions.
+
+2. **`lib/skills/validate_output.ts`** — LLM check `custom_items_bleed`: if any custom item description appears as included anywhere in the proposal, flag as ERROR. Drops the deterministic-section-required check from the original (wrong) design.
+
+3. **`lib/orchestrator.ts`** — passes `custom_item_requests` to `validate_output` (both the first-attempt and retry calls).
+
+4. **`lib/types.ts`** — new `CustomItemRequest` interface; `QuoteDetail.artifacts` now includes `custom_item_requests: CustomItemRequest[]`.
+
+5. **`app/api/quotes/[id]/route.ts`** — extracts `custom_item_requests` from the `priced_items` artifact (orchestrator persists it there as `matchResult`) and exposes via the API.
+
+6. **`app/quotes/[id]/page.tsx`** — new "Needs your pricing" card, conditionally rendered when `custom_item_requests.length > 0`. Shows description + reason per item with a clear "follow up separately or add as manual line items" subtitle. Marcus uses the existing inline line-item add flow if he wants to convert.
+
+**Live verification (re-run case 03 against production after deploy):**
+- Status: `validation_failed` → **`draft_ready` first try** ✅
+- Errors: 3 → **0** ✅
+- Total integrity: $81,445 = sum of priced items ✅
+- Custom items surfaced via API: 4 (bar seating, gas line, electrical, stucco upgrade)
+- Bleed check: gas line + electrical now appear ONLY in Exclusions; stucco appears as legitimate "stone veneer (not stucco)" reference + Exclusions; no contradiction with Project Overview
+- Validator now passes with 2 voice warnings (low priority — "premium" overuse, slightly generic closing)
+
+**Behavior the agent settled on:** custom items get routed to Exclusions in the customer-facing proposal (managing expectations clearly: "you are NOT getting these, follow-up needed") AND surfaced to Marcus internally via the new UI card. The user accepted this dual-routing as the right contractor behavior — customer sees clear scope boundary, Marcus sees the action list.
+
+**Considered:** stricter behavior where custom items don't appear in Exclusions either (truly invisible in proposal). Rejected because customers benefit from knowing what's NOT included to avoid surprise; silent omission would be worse contractor practice. Marcus can override by editing Exclusions if he wants to.
+
+**Future Phase 2 enhancement** (`docs/15-future-extensions.md`): "Add as manual line item" button on the Needs-your-pricing card that pre-populates the line-item add form. Shipped MVP just lists the items; Marcus uses the existing inline add flow.
+
 ### D40 · Catalog edit + soft-delete via PATCH and DELETE per row
 
 **Why:** D38 + D39 shipped Add. User requested the matching Edit + Remove so the catalog is full CRUD without a code change.

@@ -162,6 +162,12 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
+export interface CustomItemRequest {
+  source_scope_item_index: number;
+  description: string;
+  reason: string;
+}
+
 export interface QuoteDetail {
   quote: Quote;
   customer: Customer;
@@ -170,6 +176,11 @@ export interface QuoteDetail {
     scope: ScopeItem[];
     ambiguities: Ambiguity[];
     validation: ValidationResult | null;
+    /** D42 — items the customer mentioned that fell outside the catalog.
+     * Surfaced to Marcus on the review UI; never appears in the customer-
+     * facing proposal. Marcus decides per item: add as manual line item OR
+     * follow up separately OR ignore. */
+    custom_item_requests: CustomItemRequest[];
   };
   audit_log: AuditLogEntry[];
 }

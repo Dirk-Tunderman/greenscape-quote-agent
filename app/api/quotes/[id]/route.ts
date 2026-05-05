@@ -73,6 +73,14 @@ export async function GET(_req: Request, ctx: ParamCtx) {
     return acc;
   }, {});
 
+  // Extract custom_item_requests from the priced_items artifact (orchestrator
+  // persists matchResult = { priced_items, custom_item_requests } there).
+  // D42 — Marcus-facing surface for items the catalog couldn't price.
+  const pricedArtifact = artMap.priced_items as
+    | { custom_item_requests?: { source_scope_item_index: number; description: string; reason: string }[] }
+    | undefined;
+  const customItemRequests = pricedArtifact?.custom_item_requests ?? [];
+
   const detail: QuoteDetail = {
     quote: q as Quote,
     customer: (customer ?? {
@@ -88,6 +96,7 @@ export async function GET(_req: Request, ctx: ParamCtx) {
       scope: (artMap.scope as ScopeItem[]) ?? [],
       ambiguities: (artMap.ambiguities as Ambiguity[]) ?? [],
       validation: (artMap.validation_result as ValidationResult) ?? null,
+      custom_item_requests: customItemRequests,
     },
     audit_log: (audit.data ?? []) as AuditLogEntry[],
   };

@@ -396,7 +396,7 @@ for (const seed of SEEDS) {
     quote,
     customer,
     line_items: lineItems,
-    artifacts: { scope: seed.scope, ambiguities: seed.ambiguities, validation: seed.validation },
+    artifacts: { scope: seed.scope, ambiguities: seed.ambiguities, validation: seed.validation, custom_item_requests: [] },
     audit_log: auditLog,
   });
 

@@ -56,13 +56,13 @@ REQUIRED SECTIONS — output as a single Markdown document:
 1. # Proposal — H1
 2. ## "{Customer Name} · {Project Address}" — H2
 3. Greeting paragraph (1 short paragraph, references the site walk by date + 1-2 specific observations)
-4. ## Project Overview — 1-2 paragraphs of plain-English scope summary (key materials at category/grade level, special considerations like caliche/HOA)
+4. ## Project Overview — 1-2 paragraphs of plain-English scope summary (key materials at category/grade level, special considerations like caliche/HOA). DESCRIBES ONLY ITEMS THAT ARE PRICED. Do NOT describe items that are in custom_item_requests anywhere in this proposal.
 5. ## Detailed Scope & Pricing — Markdown table grouped by category with columns: Description | Qty | Unit | Unit Price | Line Total. Allowance items must be flagged "(allowance)" in the Description column.
 6. **Project Total: $X,XXX.XX** — bold line right after the table
-7. ## Exclusions — bulleted list of what is NOT included (kills dispute risk)
+7. ## Exclusions — bulleted list of what is NOT included (kills dispute risk).
 8. ## Timeline — short paragraph (start window, duration, phased milestones, 7-hour Phoenix-heat workdays)
 9. ## Warranty — bullet list with default: "2-year workmanship on hardscape; 1-year on irrigation; 90-day on plant material; manufacturer warranties pass through."
-10. ## Terms & Next Steps — payment schedule (use the per-quote schedule provided; default 30/30/30/10), 30-day proposal validity, change-order clause
+10. ## Terms & Next Steps — payment schedule (use the per-quote schedule provided; default 50/50), 30-day proposal validity, change-order clause
 11. ## Signature — Customer signature line + Marcus signature line, then closing "— Marcus Tate, Greenscape Pro"`;
 
 const SYSTEM = `You write proposal copy for Greenscape Pro in Marcus Tate's voice. You will be given:
@@ -80,9 +80,16 @@ CRITICAL RULES:
 - ONLY use prices, quantities, and item names from the priced_items array. Do not invent any.
 - Customer name MUST appear in the H2 heading and greeting.
 - Greeting paragraph MUST reference the site walk by date AND 1-2 specific observations from raw_notes.
-- All required sections (## headings) must be present.
+- All required sections (## headings) must be present (except "Items Requiring Custom Pricing" which is conditional).
 - Allowance items must be flagged "(allowance)" in the Description column.
-- Payment schedule percentages MUST sum to 100. Use the per-quote schedule provided (default 30/30/30/10).
+- Payment schedule percentages MUST sum to 100. Use the per-quote schedule provided (default 50/50).
+
+CUSTOM ITEMS — STRICT INTERNAL-ONLY BOUNDARY:
+- The user prompt may include a "custom_item_requests" array. These are scope items the customer mentioned that fell outside the catalog and need Marcus's manual pricing.
+- These items are INTERNAL TO MARCUS — they are NOT visible to the customer in the proposal. The proposal stays clean: it describes only what's priced, and only what's explicitly excluded. Marcus follows up with the customer separately about anything in custom_item_requests.
+- DO NOT describe items in custom_item_requests anywhere in the proposal — not in Project Overview, not in Detailed Scope, not in Exclusions, not in Timeline. Pretend they don't exist for the purpose of writing this document.
+- This is the most common cause of validation failure: a customer mentions gas lines, electrical work, or specialty items, the agent describes them in Project Overview as part of the build, but they're not in priced_items. That creates a contradiction. Solution: just don't mention them. Marcus has the list separately.
+- The Project Overview describes what's BEING DELIVERED IN THIS QUOTE. If something isn't priced, it's not in this quote.
 
 ${STYLE_GUIDE}`;
 
@@ -146,7 +153,7 @@ export async function generateProposal(
     `\nProject Total (must match the sum at the bottom): $${total.toFixed(2)}`,
     `\nPayment schedule (must sum to 100%):\n${JSON.stringify(schedule)}`,
     input.custom_item_requests.length > 0
-      ? `\nCustom item requests (mention generally in the Project Overview if material; do NOT add fake prices to the table):\n${JSON.stringify(input.custom_item_requests, null, 2)}`
+      ? `\nCustom item requests (FOR MARCUS'S INTERNAL AWARENESS ONLY — surfaced to him via the admin UI, NOT included in this customer-facing proposal. Do NOT mention these items anywhere in the proposal you generate; pretend they aren't here):\n${JSON.stringify(input.custom_item_requests, null, 2)}`
       : "",
     `\n\nFor reference, here are 2 examples of proposals in the right voice:\n\n${fewShot}\n\nNow write THIS proposal as a complete Markdown document with all required sections from the system prompt.`,
     input.corrective_feedback

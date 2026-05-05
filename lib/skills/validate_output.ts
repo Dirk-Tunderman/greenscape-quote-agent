@@ -52,6 +52,9 @@ const LlmOutputSchema = z.object({
 
 // 8-section structure (demo simplification — ROC/insurance dropped per user
 // instruction; the columns remain on `quotes` for forward compatibility).
+// custom_item_requests are surfaced to Marcus via the admin UI ONLY (D42 final
+// shape); they MUST NOT appear in the customer-facing proposal — the LLM
+// validator below enforces that boundary.
 const REQUIRED_SECTIONS: { check: string; pattern: RegExp }[] = [
   { check: "h1_proposal", pattern: /^#\s+Proposal\b/m },
   { check: "h2_customer_address", pattern: /^##\s+.+·.+$/m },
@@ -67,7 +70,7 @@ const REQUIRED_SECTIONS: { check: string; pattern: RegExp }[] = [
   { check: "signature_marcus", pattern: /Marcus Tate.*Greenscape Pro/i },
 ];
 
-const LLM_SYSTEM = `You are a quality reviewer for proposal copy at Greenscape Pro. You will be given a Markdown proposal AND a list of priced items the proposal must reflect. Your job: catch voice/tone problems and factual claims not supported by the input.
+const LLM_SYSTEM = `You are a quality reviewer for proposal copy at Greenscape Pro. You will be given a Markdown proposal, a list of priced items, AND a list of custom_item_requests (items pending Marcus's manual pricing). Your job: catch voice/tone problems, factual claims not supported by the input, and custom-item bleed (custom items appearing as if they're included in the build).
 
 Return JSON only:
 {
@@ -83,8 +86,9 @@ CHECKS YOU PERFORM:
 - factual_unsupported_claims: claims about timelines, materials, or features that are not derivable from the priced items. E.g., proposal mentions "underwater LED lighting" but no such line item exists.
 - factual_customer_match: customer name appears in the H2 heading.
 - voice_specific_not_generic: the greeting references something specific to the site walk or this project, not generic templating like "We are excited to provide you with this proposal".
+- custom_items_bleed: items in custom_item_requests MUST NOT appear ANYWHERE in this customer-facing proposal. They are internal-only (Marcus sees them on his admin UI; the customer never sees them in the proposal). If you find a custom item described or referenced in the proposal — Project Overview, Detailed Scope, Exclusions, Timeline, Warranty, Terms, or anywhere else — flag it as a "custom_items_bleed" ERROR with the specific item name and the section it appeared in. Items the customer asked about that aren't priced should NOT be in this proposal at all.
 
-DO NOT check totals, line items, or section structure — those are checked separately by code. Focus on voice and unsupported claims.
+DO NOT check totals, line items, or section structure — those are checked separately by code. Focus on voice, unsupported claims, and custom-item bleed.
 
 Set pass=false if there are any "error" severity issues. "warn" issues are OK to keep pass=true.`;
 
@@ -93,6 +97,12 @@ export interface ValidateOutputInput {
   priced_items: QuoteLineItem[];
   customer: Customer;
   payment_schedule?: { milestone: string; pct: number }[];
+  /**
+   * Items the customer mentioned that fell outside the catalog. If non-empty,
+   * the proposal MUST contain a "## Items Requiring Custom Pricing" section
+   * AND must NOT describe these items as included anywhere else (D42).
+   */
+  custom_item_requests?: { source_scope_item_index: number; description: string; reason: string }[];
 }
 
 export async function validateOutput(
@@ -131,6 +141,13 @@ export async function validateOutput(
       });
     }
   }
+
+  // D42 — custom_item_requests are internal-only (Marcus-facing UI surface).
+  // They MUST NOT appear in the customer-facing proposal at all. Bleed
+  // detection is delegated to the LLM check below (custom_items_bleed) which
+  // can do semantic comparison; a plain string-match deterministic check
+  // would miss paraphrased descriptions.
+  const customItems = input.custom_item_requests ?? [];
 
   // Payment schedule percentages must sum to 100 (research Q2)
   if (input.payment_schedule && input.payment_schedule.length > 0) {
@@ -201,6 +218,10 @@ export async function validateOutput(
       qty: p.quantity,
       unit: p.unit,
       total: p.line_total,
+    })),
+    custom_item_requests: customItems.map((c) => ({
+      description: c.description,
+      reason: c.reason,
     })),
     customer_name: input.customer.name,
   };

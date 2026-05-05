@@ -227,6 +227,37 @@ export default async function QuoteDetailPage({
         </Card>
       </div>
 
+      {/* D42 — Marcus-facing surface for items not in the catalog. Conditional;
+          customer never sees these (the proposal stays clean). */}
+      {artifacts.custom_item_requests.length > 0 ? (
+        <Card>
+          <CardHeader
+            title="Needs your pricing"
+            subtitle="These came up on the walk but aren't in the catalog. Add as manual line items if you want to include them — otherwise follow up with the customer separately. The proposal won't mention them."
+            action={
+              <span className="text-xs uppercase tracking-wider text-sunset-terracotta font-medium">
+                {artifacts.custom_item_requests.length} item
+                {artifacts.custom_item_requests.length === 1 ? "" : "s"}
+              </span>
+            }
+          />
+          <CardBody>
+            <ul className="divide-y divide-adobe -my-2">
+              {artifacts.custom_item_requests.map((item, idx) => (
+                <li key={idx} className="py-3">
+                  <p className="text-sm font-medium text-saguaro-black">
+                    {item.description}
+                  </p>
+                  {item.reason ? (
+                    <p className="text-xs text-stone-gray mt-1">{item.reason}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      ) : null}
+
       {/* Line items + total */}
       <Card>
         <CardHeader
