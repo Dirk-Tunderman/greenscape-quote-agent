@@ -55,7 +55,7 @@ export function QuotesFilterBar({
           id="search"
           name="search"
           type="search"
-          placeholder="Customer name, email, project type, quote ID"
+          placeholder="Customer name, email, project title, quote ID"
           defaultValue={initialSearch}
           onChange={(e) => update("search", e.target.value)}
         />

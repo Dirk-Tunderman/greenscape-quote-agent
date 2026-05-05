@@ -107,10 +107,10 @@ export function NewQuoteForm() {
           Project
         </legend>
         <Field
-          label="Project type"
+          label="Project title"
           htmlFor="project_type"
           required
-          hint="Free-form — most projects bundle categories. Write it like you'd say it."
+          hint="A short label for this project — write it like you'd say it. Bundles are fine."
           error={errors.project_type}
         >
           <Input

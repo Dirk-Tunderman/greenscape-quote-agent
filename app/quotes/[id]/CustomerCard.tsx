@@ -106,7 +106,7 @@ export function CustomerCard({
           readOnly={readOnly}
           onCommit={(v) => commit("address", v)}
         />
-        <Static label="Project type" value={projectType} />
+        <Static label="Project title" value={projectType} />
         <Static label="Created" value={formatDate(createdAt)} />
       </div>
       <div className="text-xs h-4">

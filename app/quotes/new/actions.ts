@@ -27,7 +27,7 @@ const draftSchema = z.object({
   customer_email: z.string().trim().email("Enter a valid email"),
   customer_phone: z.string().trim().optional().default(""),
   customer_address: z.string().trim().min(5, "Project address is required"),
-  project_type: z.string().trim().min(2, "Project type is required"),
+  project_type: z.string().trim().min(2, "Project title is required"),
   raw_notes: z.string().trim().min(20, "Add at least a few sentences of site walk notes"),
   hoa: z.string().optional(),
 });
