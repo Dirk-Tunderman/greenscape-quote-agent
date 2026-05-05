@@ -5,6 +5,7 @@ import { Card } from "@/components/Card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { QuotesFilterBar } from "./QuotesFilterBar";
+import { DeleteQuoteButton } from "./DeleteQuoteButton";
 import { listQuotes } from "@/data/store";
 import { formatCurrency, formatCurrencyWhole, formatDate } from "@/lib/utils";
 import type { QuoteStatus } from "@/lib/types";
@@ -77,6 +78,7 @@ export default async function QuotesPage({
                   <Th className="text-right">Total</Th>
                   <Th className="text-right hidden md:table-cell">API cost</Th>
                   <Th className="text-right">Created</Th>
+                  <Th className="w-8"><span className="sr-only">Delete</span></Th>
                 </tr>
               </thead>
               <tbody>
@@ -119,6 +121,15 @@ export default async function QuotesPage({
                     </Td>
                     <Td className="text-right text-stone-gray whitespace-nowrap">
                       {formatDate(q.created_at)}
+                    </Td>
+                    <Td className="text-right pl-2 pr-3">
+                      <DeleteQuoteButton
+                        quoteId={q.id}
+                        customerName={q.customer_name}
+                        projectTitle={q.project_type}
+                        total={q.total_amount}
+                        status={q.status}
+                      />
                     </Td>
                   </tr>
                 ))}

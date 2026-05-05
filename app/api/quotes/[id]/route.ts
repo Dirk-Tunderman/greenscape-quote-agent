@@ -201,3 +201,64 @@ export async function PATCH(req: Request, ctx: ParamCtx) {
 
   return NextResponse.json({ quote: updated });
 }
+
+/**
+ * DELETE /api/quotes/[id] — permanently remove a quote and everything
+ * derived from it. Used by the trash button in the list view (with a
+ * client-side confirmation modal).
+ *
+ * Cleanup order:
+ *  1. PDF blob in Storage (so we don't leak a signed-URL artifact)
+ *  2. Quote row — DB cascades remove quote_line_items, quote_artifacts,
+ *     and audit_log entries automatically (see migration 001).
+ *  3. Customer is deliberately preserved. The FK is `on delete restrict`
+ *     and customers are reused across quotes; cleaning them up is a
+ *     separate operation.
+ *
+ * Idempotent on the storage step (object may already be gone). The
+ * quote-row delete is the source of truth for "deleted".
+ */
+const PDF_BUCKET = "greenscape-quotes";
+
+export async function DELETE(_req: Request, ctx: ParamCtx) {
+  const { id } = await ctx.params;
+  const supabase = getSupabaseAdmin();
+
+  // Fetch enough of the row to know it exists + drive the storage cleanup.
+  const { data: quote, error: qe } = await supabase
+    .from("quotes")
+    .select("id, status, pdf_url")
+    .eq("id", id)
+    .single();
+  if (qe || !quote) {
+    return NextResponse.json({ error: qe?.message ?? "not found" }, { status: 404 });
+  }
+
+  // Outcome-locked rows can't be deleted from the UI by accident — the
+  // customer signed something, the record is part of the project history.
+  // Marcus can still nuke them via SQL if he really needs to.
+  if ((quote as { status: string }).status === "accepted") {
+    return NextResponse.json(
+      { error: "Accepted quotes are locked; the customer signed this one. Delete via DB if you really need to." },
+      { status: 409 },
+    );
+  }
+
+  // Try the PDF folder; ignore errors (object may not exist for drafts
+  // that never reached the send step).
+  try {
+    const { data: objects } = await supabase.storage.from(PDF_BUCKET).list(id);
+    if (objects && objects.length > 0) {
+      const paths = objects.map((o) => `${id}/${o.name}`);
+      await supabase.storage.from(PDF_BUCKET).remove(paths);
+    }
+  } catch {
+    // best-effort
+  }
+
+  const { error: delErr } = await supabase.from("quotes").delete().eq("id", id);
+  if (delErr) {
+    return NextResponse.json({ error: delErr.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true });
+}

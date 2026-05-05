@@ -223,6 +223,10 @@ export async function downloadPdf(quoteId: string): Promise<DownloadPdfResult> {
   return { pdf_url: result.pdf_url, sent_at: result.sent_at };
 }
 
+export async function deleteQuote(quoteId: string): Promise<void> {
+  await api(`/api/quotes/${quoteId}`, { method: "DELETE" });
+}
+
 export async function setOutcome(
   quoteId: string,
   outcome: "accepted" | "rejected" | "lost",
