@@ -6,8 +6,8 @@
 # What this removes:
 #   1. systemd service `greenscape-quote-agent.service` (stopped, disabled, file removed)
 #   2. App directory `/opt/greenscape-quote-agent`
-#   3. Caddy site block for `quote-agent.tunderman.io` (only if it was added)
-#   4. Cloudflare DNS record for `quote-agent.tunderman.io` (manual reminder — no API call)
+#   3. Caddy site block for `quote-agent.tunderman.cc` (only if it was added)
+#   4. Cloudflare DNS record `quote-agent.tunderman.cc` (manual reminder — no API call)
 #
 # What this does NOT touch:
 #   - Anything SchilderGroei (`/opt/schildergroei`, `schildergroei-*` services)
@@ -69,8 +69,8 @@ if confirm "Proceed?"; then
 fi
 echo
 
-echo "Step 4 (manual): remove Cloudflare DNS record for quote-agent.tunderman.io"
-echo "  Visit https://dash.cloudflare.com/ → tunderman.io → DNS → delete the A record."
+echo "Step 4 (manual): remove Cloudflare DNS record for quote-agent.tunderman.cc"
+echo "  Visit https://dash.cloudflare.com/ba28420353f5337ec43ebdfe1ac09598/tunderman.cc/dns/records → delete the 'quote-agent' A record."
 echo
 
 echo "=== Verifying SchilderGroei still healthy ==="
