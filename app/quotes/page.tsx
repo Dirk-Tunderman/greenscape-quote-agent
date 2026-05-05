@@ -78,7 +78,7 @@ export default async function QuotesPage({
                   <Th className="text-right">Total</Th>
                   <Th className="text-right hidden md:table-cell">API cost</Th>
                   <Th className="text-right">Created</Th>
-                  <Th className="w-8"><span className="sr-only">Delete</span></Th>
+                  <Th className="w-12"><span className="sr-only">Delete</span></Th>
                 </tr>
               </thead>
               <tbody>
@@ -122,7 +122,8 @@ export default async function QuotesPage({
                     <Td className="text-right text-stone-gray whitespace-nowrap">
                       {formatDate(q.created_at)}
                     </Td>
-                    <Td className="text-right pl-2 pr-3">
+                    {/* Vertically centered (overrides Td's align-top); narrow column with extra right padding so the icon sits clean against the card edge. */}
+                    <td className="px-3 border-b border-adobe last:border-b-0 align-middle text-right w-12">
                       <DeleteQuoteButton
                         quoteId={q.id}
                         customerName={q.customer_name}
@@ -130,7 +131,7 @@ export default async function QuotesPage({
                         total={q.total_amount}
                         status={q.status}
                       />
-                    </Td>
+                    </td>
                   </tr>
                 ))}
               </tbody>
