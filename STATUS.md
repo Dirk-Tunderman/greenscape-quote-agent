@@ -6,14 +6,23 @@
 
 ## Last updated
 
-`2026-05-05` · Chat A (END-TO-END LIVE on https://quote-agent.tunderman.cc · 2 integration tests PASSED · PDF + email pipeline verified)
-Next update: after commit gate → final code-review subagent → Loom
+`2026-05-05` · Chat A v2 (WIRE-UP COMPLETE — frontend now reads from real DB, not mocks · email send removed · section-by-section editable proposal · DB list cleaned + 2 new real seeds)
+Next update: after final code-review subagent → Loom
 
 ---
 
 ## Current overall phase
 
-**Backend deployed and live.** Public URL `https://quote-agent.tunderman.cc` serving real agent runs against real DB + Anthropic + Resend.
+**v2 wire-up complete.** Public URL `https://quote-agent.tunderman.cc` is now serving the *actual* product end-to-end — UI reads from DB, agent triggers from form submit, line-item edits + section edits persist, "Approve & download PDF" replaces customer email.
+
+**Live list (5 quotes):**
+- Linda Whitaker — $26,107 · finalized · 0.154 cost
+- Bret Anderson — $3,505 · draft_ready · 0.122 cost
+- Maria Lopez — $13,395 · draft_ready · 0.129 cost
+- David Chen — $59,000 · finalized (>30K render flag) · 0.228 cost
+- Hannah Patel — $15,955 · accepted · 0.122 cost
+
+Backend deployed and live. Real agent runs against real DB + Anthropic. Resend code retained but no live route invokes it (Phase 2 candidate).
 
 **Integration tests passed end-to-end:**
 1. **Patel (local)** — patio + irrigation refresh, $15,955, 7 line items, 81s, $0.12 cost, 3 ambiguities surfaced (1 blocker, 2 warns), retry-on-validate-fail loop fired once + passed, PDF generated + Storage uploaded + Resend email sent → status `sent`.
@@ -149,6 +158,7 @@ Phase progression (from `docs/05-build-plan.md`):
 
 | Date | Chat | Item |
 |---|---|---|
+| 2026-05-05 | Chat A v2 | **WIRE-UP COMPLETE.** `data/store.ts` now calls real `/api/*` endpoints (mocks removed from live path). `/quotes` list shows DB rows; `/quotes/new` triggers the real agent; line-item + section edits persist; "Approve & download PDF" replaces email send (Resend deferred to Phase 2). Section-by-section editable proposal (parse on read, recombine on save). Budget signal field deleted. DB cleaned (3 validation_failed rows removed); 2 new real seeds added (Anderson $3.5K, Whitaker $26K) + Patel marked accepted to vary list states. Section-edit + finalize → PDF download verified end-to-end. |
 | 2026-05-05 | Chat B | Documentation pass — wrote `docs/13-frontend-internals.md` (deep-dive frontend ref) + JSDoc headers on 10 key files. Frontend complete: 4 pages live on mocks, swap recipe documented, ready for API wire-in. |
 | 2026-05-05 | Chat A | **END-TO-END LIVE.** 2 integration tests on PROD passed (Patel $15,955 patio+irrigation, Chen $59,000 full backyard with `needs_render:true`). Real Anthropic Sonnet 4.5 + Haiku 4.5 chains, real Supabase DB + Storage, real Resend email send w/ branded PDF attached. Validate-on-fail retry loop verified. Total dev+test Anthropic spend ≈ $0.50. |
 | 2026-05-05 | Chat A | Aligned code with research D26-D30: migration 003 (item_type / payment_schedule / ROC / insurance), 9-section template w/ Exclusions + Warranty + License Block, ROC + payment-schedule-sum validators; build green; **ROC/insurance later stripped per user (kept columns for forward compat)** |
