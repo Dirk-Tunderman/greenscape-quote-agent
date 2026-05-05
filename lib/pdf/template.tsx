@@ -151,39 +151,52 @@ const styles = StyleSheet.create({
   },
 
   // Body
+  section: {
+    marginTop: 22,
+    marginBottom: 6,
+  },
   sectionHeading: {
     fontFamily: "Times-Roman",
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: 600,
     color: COLORS.mojaveGreen,
-    marginTop: 16,
-    marginBottom: 6,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.sandstone,
+    marginBottom: 4,
   },
-  paragraph: {
+  sectionDivider: {
+    height: 1,
+    backgroundColor: COLORS.sandstone,
+    marginBottom: 14,
+  },
+  paragraphBlock: {
+    marginBottom: 12,
+  },
+  paragraphText: {
     fontSize: 11,
-    lineHeight: 1.6,
-    marginBottom: 8,
+    lineHeight: 1.65,
+    color: COLORS.saguaro,
+  },
+  bulletList: {
+    marginBottom: 12,
   },
   bullet: {
     flexDirection: "row",
-    marginBottom: 3,
+    marginBottom: 4,
   },
   bulletDot: {
     width: 12,
     color: COLORS.mojaveGreen,
+    fontSize: 11,
   },
   bulletText: {
     flex: 1,
     fontSize: 11,
-    lineHeight: 1.5,
+    lineHeight: 1.55,
+    color: COLORS.saguaro,
   },
 
   // Pricing table
   table: {
-    marginTop: 6,
+    marginTop: 8,
     marginBottom: 6,
   },
   tableHeader: {
@@ -191,54 +204,55 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.adobe,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.sandstone,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
   },
   tableHeaderCell: {
     fontFamily: "Helvetica",
     fontWeight: 600,
-    fontSize: 9.5,
+    fontSize: 9,
     color: COLORS.saguaro,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.adobe,
+    alignItems: "flex-start",
   },
   tableRowAlt: {
     backgroundColor: "#fafaf6",
   },
-  cellDescription: { width: "55%", fontSize: 10 },
-  cellQty: { width: "12%", fontSize: 10, textAlign: "right" },
-  cellUnit: { width: "10%", fontSize: 10, color: COLORS.stone },
-  cellPrice: { width: "12%", fontSize: 10, textAlign: "right" },
-  cellTotal: { width: "11%", fontSize: 10, textAlign: "right", fontWeight: 600 },
+  cellDescription: { width: "50%", fontSize: 10, color: COLORS.saguaro, paddingRight: 6 },
+  cellQty: { width: "10%", fontSize: 10, textAlign: "right", color: COLORS.saguaro },
+  cellUnit: { width: "13%", fontSize: 10, color: COLORS.stone, paddingLeft: 6 },
+  cellPrice: { width: "13%", fontSize: 10, textAlign: "right", color: COLORS.saguaro },
+  cellTotal: { width: "14%", fontSize: 10, textAlign: "right", fontWeight: 600, color: COLORS.saguaro },
 
   // Total
   totalRow: {
-    marginTop: 12,
-    paddingTop: 12,
-    paddingBottom: 12,
+    marginTop: 18,
+    paddingTop: 16,
+    paddingBottom: 4,
     borderTopWidth: 2,
     borderTopColor: COLORS.terracotta,
     flexDirection: "row",
     justifyContent: "flex-end",
-    alignItems: "center",
+    alignItems: "baseline",
   },
   totalLabel: {
     fontFamily: "Times-Roman",
     fontSize: 16,
     fontWeight: 600,
     color: COLORS.saguaro,
-    marginRight: 14,
+    marginRight: 16,
   },
   totalAmount: {
     fontFamily: "Times-Roman",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 600,
     color: COLORS.mojaveGreen,
   },
@@ -314,23 +328,28 @@ function formatDate(s: string): string {
 
 /**
  * Render a section body (paragraphs + bullet lists) using react-pdf
- * primitives. Bold/italic/code is stripped to plain text inside the parser.
+ * primitives. Each block gets its own <View> wrapper — react-pdf's <Text>
+ * doesn't reliably reserve block height for wrapped content, so consecutive
+ * <Text> siblings can paint on top of each other. <View> forces a proper
+ * layout box per block.
+ *
+ * Bold/italic/code is stripped to plain text inside the parser.
  */
 function BodyBlocks({ body }: { body: string }) {
   const blocks = parsePdfBody(body);
   if (blocks.length === 0) return null;
   return (
-    <>
+    <View>
       {blocks.map((b, i) => {
         if (b.kind === "para") {
           return (
-            <Text key={i} style={styles.paragraph}>
-              {b.text}
-            </Text>
+            <View key={i} style={styles.paragraphBlock}>
+              <Text style={styles.paragraphText}>{b.text}</Text>
+            </View>
           );
         }
         return (
-          <View key={i} style={{ marginBottom: 8 }}>
+          <View key={i} style={styles.bulletList}>
             {b.items.map((item, j) => (
               <View key={j} style={styles.bullet} wrap={false}>
                 <Text style={styles.bulletDot}>·</Text>
@@ -340,6 +359,16 @@ function BodyBlocks({ body }: { body: string }) {
           </View>
         );
       })}
+    </View>
+  );
+}
+
+/** Common heading + sandstone underline pair used by every section. */
+function SectionHeading({ title }: { title: string }) {
+  return (
+    <>
+      <Text style={styles.sectionHeading}>{title}</Text>
+      <View style={styles.sectionDivider} />
     </>
   );
 }
@@ -354,7 +383,7 @@ function PricingTable({
   return (
     <>
       <View style={styles.table}>
-        <View style={styles.tableHeader}>
+        <View style={styles.tableHeader} fixed>
           <Text style={[styles.cellDescription, styles.tableHeaderCell]}>Description</Text>
           <Text style={[styles.cellQty, styles.tableHeaderCell]}>Qty</Text>
           <Text style={[styles.cellUnit, styles.tableHeaderCell]}>Unit</Text>
@@ -362,7 +391,11 @@ function PricingTable({
           <Text style={[styles.cellTotal, styles.tableHeaderCell]}>Total</Text>
         </View>
         {line_items.map((li, i) => (
-          <View key={li.id || i} style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}>
+          <View
+            key={li.id || i}
+            style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}
+            wrap={false}
+          >
             <Text style={styles.cellDescription}>{li.line_item_name_snapshot}</Text>
             <Text style={styles.cellQty}>{formatNumber(Number(li.quantity))}</Text>
             <Text style={styles.cellUnit}>{li.unit.replace("_", " ")}</Text>
@@ -372,7 +405,7 @@ function PricingTable({
         ))}
       </View>
 
-      <View style={styles.totalRow}>
+      <View style={styles.totalRow} wrap={false}>
         <Text style={styles.totalLabel}>Project total</Text>
         <Text style={styles.totalAmount}>{formatCurrency(total)}</Text>
       </View>
@@ -383,8 +416,10 @@ function PricingTable({
 function PaymentScheduleBullets({ schedule }: { schedule: PaymentScheduleItem[] }) {
   const items = schedule.length > 0 ? schedule : DEFAULT_PAYMENT_SCHEDULE;
   return (
-    <View style={{ marginBottom: 8 }}>
-      <Text style={[styles.paragraph, { fontWeight: 600, marginBottom: 4 }]}>Payment schedule:</Text>
+    <View style={{ marginBottom: 12 }}>
+      <View style={{ marginBottom: 6 }}>
+        <Text style={[styles.paragraphText, { fontWeight: 600 }]}>Payment schedule:</Text>
+      </View>
       {items.map((s, i) => (
         <View key={i} style={styles.bullet} wrap={false}>
           <Text style={styles.bulletDot}>·</Text>
@@ -458,14 +493,21 @@ export function ProposalPdf({ customer, quote, line_items }: ProposalPdfProps) {
       {/* Body */}
       <Page size="LETTER" style={styles.page}>
         {/* Greeting (no heading — cover already shows the customer name) */}
-        {greetingSection ? <BodyBlocks body={greetingSection.body} /> : null}
+        {greetingSection ? (
+          <View style={{ marginBottom: 8 }}>
+            <BodyBlocks body={greetingSection.body} />
+          </View>
+        ) : null}
 
         {/* Remaining sections */}
         {restSections.map((s, i) => {
           if (isScopePricingSection(s.title)) {
+            // Detailed Scope & Pricing gets its own page — `break` forces
+            // a page break BEFORE this view. The table is the visual
+            // anchor of the document, so giving it room to breathe.
             return (
-              <View key={i} wrap={false}>
-                <Text style={styles.sectionHeading}>{s.title}</Text>
+              <View key={i} style={styles.section} break>
+                <SectionHeading title={s.title} />
                 <PricingTable line_items={line_items} total={total} />
                 {quote.needs_render && (
                   <Text style={styles.renderBadge}>
@@ -479,27 +521,24 @@ export function ProposalPdf({ customer, quote, line_items }: ProposalPdfProps) {
           if (isTermsSection(s.title)) {
             const restBody = stripPaymentSchedule(s.body);
             return (
-              <View key={i}>
-                <Text style={styles.sectionHeading}>{s.title}</Text>
+              <View key={i} style={styles.section}>
+                <SectionHeading title={s.title} />
                 <PaymentScheduleBullets schedule={paymentSchedule} />
                 <BodyBlocks body={restBody} />
               </View>
             );
           }
           if (isSignatureSection(s.title)) {
-            // Use the LLM's heading but render our structured signature
-            // block — the LLM's body is just placeholder lines for the
-            // same fields (Customer / Date / Greenscape Pro / Date).
             return (
-              <View key={i}>
-                <Text style={styles.sectionHeading}>{s.title}</Text>
+              <View key={i} style={styles.section} wrap={false}>
+                <SectionHeading title={s.title} />
                 <SignatureGrid customerName={customer.name} />
               </View>
             );
           }
           return (
-            <View key={i}>
-              <Text style={styles.sectionHeading}>{s.title}</Text>
+            <View key={i} style={styles.section}>
+              <SectionHeading title={s.title} />
               <BodyBlocks body={s.body} />
             </View>
           );
@@ -507,10 +546,10 @@ export function ProposalPdf({ customer, quote, line_items }: ProposalPdfProps) {
 
         {/* Append our signature block only if the LLM didn't already produce one */}
         {!hasSignatureSection ? (
-          <>
-            <Text style={styles.sectionHeading}>Signature</Text>
+          <View style={styles.section} wrap={false}>
+            <SectionHeading title="Signature" />
             <SignatureGrid customerName={customer.name} />
-          </>
+          </View>
         ) : null}
 
         <Text style={styles.pageFooter} fixed>
