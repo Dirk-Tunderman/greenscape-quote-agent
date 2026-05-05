@@ -131,6 +131,21 @@ The "registry table" idea from the original deferred plan turned out to be over-
 
 **Effort:** ~40 hours for a real portal.
 
+### F14b · Customer dedup-on-email respects form values
+
+**What:** When the customer find-or-create logic in `lib/orchestrator.ts` Step 1 matches an existing customer by email, the form-submitted address/phone/name are silently dropped in favor of the stored values. Detected by all 3 e2e test runners on 5 of 6 cases.
+
+**Why deferred from MVP:** Doesn't affect proposal quality, agent reasoning, or any deterministic guards. Customer NAME still flows correctly into the proposal because the agent reads from the form values during the run; only the persisted customer record uses the existing row's stored fields. Only manifests when the same email is reused across multiple quotes — uncommon in real usage and only visible during demo if Marcus creates multiple test quotes for the same email.
+
+**Effort:** ~10 min for the simplest fix (option a) below.
+
+**Three options when shipping:**
+- (a) **Update existing record** with form values on dedup match (simplest, may cause silent overwrites if Marcus made a typo)
+- (b) **Show "this email matches existing customer X — use stored OR update?" prompt** (better UX, requires UI work)
+- (c) **Treat (email + address) as the dedupe key** instead of just email (more correct semantics if a customer has multiple properties)
+
+Lean: option (b) if shipping, but (a) is fine for MVP-level fix.
+
 ### F14 · Real Anthropic key (not SchilderGroei reuse)
 
 **What:** Per `~/Desktop/system/credentials.md` project-scoping rule, the Anthropic key should be project-scoped to Greenscape, not reused from SchilderGroei.

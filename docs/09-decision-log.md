@@ -422,3 +422,90 @@ These decisions came after the initial mock-backed deploy went live and the user
 **Loom-defensible framing:** *"What if the model returns garbage? validate_output catches it. What if the user submits garbage? Three layers — form validation rejects too-short input for free, a Haiku pre-flight check at $0.001 catches wrong-content-type, and extract_scope's __no_scope exit is the backstop for sparse-but-relevant inputs that fool the relevance check. Total defensive cost per submission: <$0.002 when the input is good; <$0.01 when caught."*
 
 **What's still deferred** (audio path — Chat A/B in flight): pre-transcription duration/size checks, post-transcription length + gibberish detection. Both belong with the audio feature, captured in `docs/15-future-extensions.md` once shipped.
+
+> **Note on D42:** reserved for the `custom_item_requests` surfacing work tracked in another chat — see the comment in `app/api/quotes/[id]/route.ts` GET handler. The MVP additions D43–D48 below were shipped after D41 and skip D42 so that index stays free.
+
+### D43 · Audio upload on /quotes/new (Deepgram Nova-3 → notes textarea)
+
+**Why:** Marcus dictates site walks as voice memos in the field. Forcing him to retype them at the desk is wasteful; the brief flagged voice as a stretch goal but Deepgram is already wired into `tools.tunderman.cc`, so a one-day port was cheaper than expected.
+
+**What we shipped:**
+- `POST /api/transcribe` — multipart audio → Deepgram Nova-3 with `detect_language=true&smart_format=true&punctuate=true`. No DB persistence; the transcript drops straight into the existing `raw_notes` textarea on the form so the user reviews/edits before the same submit path runs.
+- `components/AudioUploader.tsx` — drag-drop + click-to-browse, XHR upload with progress, four phases (idle / uploading / transcribing / done / error). Idle state styled to look inviting (mojave-green dashed border + tint + hover lift) — earlier round looked disabled.
+- `NewQuoteForm.tsx` — textarea is now controlled (was uncontrolled `defaultValue`) so the uploader can write into it. Submit path is unchanged: same `raw_notes` field reaches the server action whether typed, pasted, or transcribed. Append-on-second-upload preserves prior content under a blank line.
+- "Site walk" group: recording widget + textarea live in one bordered card with the lead-in *"Drop a recording, write notes by hand, or do both. The agent works from whatever ends up in the notes box."* Numbered sub-steps with an "and / or" divider.
+- `DEEPGRAM_API_KEY` in `.env.local` and on the Hetzner server's `.env` (same key the lead-system tools page uses).
+
+**Component code adapted from `lead-system/tools/src/app/transcribe/`** (Nova-3 setup, ALLOWED_TYPES list) with the persistence layer stripped — for the take-home we don't keep transcripts. Restyled to the saguaro/mojave-green palette and converted to inline SVGs (project doesn't pull in lucide-react).
+
+**Live verification (2026-05-05):** generated a 14s test recording via macOS `say`, dropped it into the form on production. Transcript came back ~2s later, landed in the textarea verbatim, drafting proceeded normally.
+
+### D44 · Project type → free-text input, relabelled "Project title"
+
+**Why:** Real quotes already proved the dropdown wrong: 2 of 3 entries were multi-category bundles (`"front-yard turf swap"`, `"patio + irrigation refresh"`, `"full backyard overhaul"`) that didn't fit any single dropdown option. Marcus's typical $28K project bundles 3–4 categories; the dropdown forced him to lose information or fall back to "Other".
+
+**What we shipped:**
+- Dropdown → `<Input>` with placeholder `e.g. Patio + pergola refresh`. ~5 LOC change in `NewQuoteForm.tsx`; `PROJECT_TYPES` constant deleted.
+- DB column stays `project_type` (text, no enum, no migration). Field name and column name diverge; that's normal once a column outgrows its original meaning.
+- UI relabel pass: form label, hint, validation message, search-bar placeholder, customer-card read-only display all now say "Project title". Internal references (agent prompts, types) keep `project_type` as the field key — invisible to anyone but a dev reading the schema.
+
+**Why not multi-select:** matches *some* bundle reality but Marcus's actual labels (`"Henderson refresh"`, `"Bowen rebuild"`) aren't capturable as a category list at all. Free text covers both.
+
+**Why not delete the field:** the agent extracts categories from `raw_notes`, not from this field — so `project_type` is metadata for humans (list view label, proposal header). Still load-bearing for the UI even if not for the agent.
+
+### D45 · PDF renders parsed proposal_markdown sections (was rendering boilerplate)
+
+**Why:** The downloaded PDF and the on-screen "Proposal draft" were two parallel renderings of the same source data — except the PDF ignored `proposal_markdown` entirely. The on-screen surface parsed it section-by-section (8 sections, LLM-generated prose); the PDF rendered hardcoded boilerplate (`"Thanks for walking the yard..."`, `DEFAULT_EXCLUSIONS`, `DEFAULT_WARRANTY`, `"We're booking ~6 weeks out"`) plus an auto-generated scope summary with a double-bullet rendering bug. Marcus's section edits never reached the downloaded file, and customer-specific text was simply absent.
+
+**What we shipped:**
+- New `lib/proposal/sections.ts` extracted from the editor: `parseSections`, `recombineSections`, `generateScopePricingBody`, `generatePaymentSchedule`, `stripPaymentSchedule`, `isScopePricingSection`, `isTermsSection`, `isSignatureSection`, plus a `parsePdfBody` that converts a section body into a flat list of `{kind: para|bullets}` blocks for react-pdf to render.
+- `lib/pdf/template.tsx` rewritten to walk parsed sections:
+  - **Section 0** → greeting body, no heading (cover already shows "Prepared for {customer.name}", repeating it is noise)
+  - **Detailed Scope & Pricing** → re-derived from `line_items` + total (markdown body discarded; same auto-derive rule as the on-screen editor)
+  - **Terms & Next Steps** → re-derived payment schedule + the LLM/edited "rest" body (post-`stripPaymentSchedule`)
+  - **Signature** → suppress LLM body, render structured signature grid; appended only if the LLM didn't produce its own Signature section (deduplicates the placeholder block we used to render twice)
+  - **All other sections** → heading + parsed body
+- `generatePaymentSchedule()` no longer prints dollar amounts. `50% deposit` / `50% completion`. The Project Total in the table is the authoritative figure; duplicating it in the schedule was a second number that drifted with line-item edits. Same rule applies to PDF and on-screen.
+
+**Live verification (2026-05-05):** PDF for the live Tunderman quote (`1f262f1f-...`) — greeting, project overview, exclusions, timeline, warranty, terms, signature all show the LLM/edited prose. Payment schedule reads `50% deposit / 50% completion` in both surfaces.
+
+### D46 · PDF layout polish — dedicated page for pricing, fix Text overlap, breathe
+
+**Why:** Once D45 wired the markdown through, the visual layout was unreadable: paragraphs literally overlapped (Project Overview was painted as two paragraphs on top of each other). Pricing table was crammed; section headings ran into body text.
+
+**Root cause of the overlap:** react-pdf's `<Text>` doesn't reliably reserve block height for wrapped content — consecutive `<Text>` siblings collapse onto the same Y origin. The first `<Text>` would visually wrap to 6 lines but the layout engine treated it as 1 line tall, so the next `<Text>` painted starting at the same top.
+
+**Fix:**
+- Every block — paragraph, bullet list, section heading + divider — now lives inside its own `<View>`. View has a real layout box; consecutive views stack as expected.
+- Section divider is a separate `<View>` below the heading instead of a `borderBottom` on the heading `<Text>` (same root cause; the border didn't always paint where the text wrapping put it).
+- Detailed Scope & Pricing gets `break` (page break before) so it lands on its own page. The table is the visual anchor of the document — was getting jammed into whatever vertical space remained after Project Overview prose.
+- Table header is `fixed`, every row is `wrap={false}`. Header repeats when the table wraps to a second page; rows can't split across pages mid-content.
+- Bullet items are `wrap={false}` so a page break can't separate the dot from its text.
+- Spacing pass: section margin-top 22, paragraph margin-bottom 12, line-height 1.65, table row paddingVertical 6. Project total amount 24pt with a terracotta accent line above.
+
+**Live verification (2026-05-05):** rasterized all 6 pages at 110 DPI and visually inspected — cover, body p1 (greeting + overview, no overlap), pricing p1 + p2 (header repeats, big terracotta-accented total), Timeline/Warranty/Terms p3, Signature page. All clean.
+
+### D47 · Modal renders into a portal (escapes backdrop-filter ancestors)
+
+**Why:** Bottom sticky bar on `/quotes/[id]` uses `backdrop-blur` (visual blur over the scrolling content beneath). Per the CSS Backdrop Filter spec, an element with `backdrop-filter` establishes a containing block for `position: fixed` descendants. The Re-generate PDF modal opened from the bottom button used `fixed inset-0` to span the viewport — but its containing block was the ~80px sticky bar, not the viewport. The modal showed up sized to the bar, appearing clipped or pushed off-screen. Top button's modal worked fine because its `ApproveBar` wasn't inside any `backdrop-filter` ancestor.
+
+**Fix:**
+- `components/Modal.tsx` now `createPortal`s into `document.body`. The portal target lives outside any `backdrop-filter` element, so `fixed inset-0` truly means viewport again. The Modal already had a comment from when it was first written: *"NOT a portal — promote to a portal if we ever need nested modals."* Turns out we needed it for a different reason.
+- Both top and bottom "Re-generate PDF" triggers verified identical: same `<ApproveBar>` component, same props, same modal, same `approveAndDownloadAction`. No drift.
+
+**Live verification (2026-05-05):** scrolled to bottom of `/quotes/[id]`, clicked the bottom Re-generate button. Modal's outer container measured `top:0, left:0, w:1525, h:1268` (full viewport); inner card landed at `top:508, left:427` — perfectly centered regardless of scroll position.
+
+### D48 · Per-row delete on the quotes list (with confirmation)
+
+**Why:** Marcus needs to clean up test rows, abandoned drafts, and `validation_failed` quotes without dropping into SQL. The list view is the natural place.
+
+**What we shipped:**
+- `DELETE /api/quotes/[id]` — best-effort wipe of the PDF blob in Supabase Storage (object may not exist for drafts that never reached the send step), then `delete from quotes where id = ?`. The DB schema already cascades on `quote_id` (migration 001: `quote_line_items`, `quote_artifacts`, `audit_log` all have `on delete cascade`), so child rows clean up automatically.
+- Customer is preserved. The FK is `on delete restrict`; customers are reused across quotes; cleaning them up is a separate operation.
+- Accepted quotes are blocked at the route layer (returns 409). The customer signed; we don't let a click destroy that record. Hard delete remains available via SQL for emergencies.
+- Front-end: `DeleteQuoteButton` client island per row with a trash icon. Opens the shared portal `<Modal>` (D47) with a confirmation that names the customer + project + total. Locked statuses (`drafting` / `sending` / `accepted`) disable the trigger with an explanatory tooltip.
+- Server action calls `revalidatePath("/quotes")` + `router.refresh()`; the row vanishes as soon as the action returns.
+
+**Live verification (2026-05-05):** deleted the validation_failed test row from the local list (9 → 8 rows, deleted ID absent on next render, modal closed cleanly).
+
+**Considered:** Cascading the customer delete when the deleted quote was their last one. Rejected — customers are cheap to keep around (one row, no children once the quote is gone) and may legitimately come back with a new project. Orphan-customer cleanup is a separate bulk operation if/when it becomes a real problem.
