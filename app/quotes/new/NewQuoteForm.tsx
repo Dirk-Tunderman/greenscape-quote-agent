@@ -5,15 +5,21 @@
  * and the action receives a FormData snapshot on submit. State is only used
  * to surface field errors and re-populate values after a validation failure.
  *
+ * Site-walk notes textarea is the exception: it's controlled so the audio
+ * uploader can drop a transcript into it after Deepgram returns. The user
+ * still reviews/edits before submit and the same `raw_notes` field reaches
+ * the server action — single ingest path on the backend.
+ *
  * SubmitButton is split out so useFormStatus picks up the pending state from
  * the enclosing form context.
  */
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field, Input, Select, Textarea } from "@/components/Input";
 import { Button } from "@/components/Button";
+import { AudioUploader } from "@/components/AudioUploader";
 import { createDraftAction } from "./actions";
 import { EMPTY_FORM_STATE, type NewQuoteFormState } from "./form-state";
 
@@ -38,6 +44,20 @@ export function NewQuoteForm() {
 
   const errors: Record<string, string> = state?.fieldErrors ?? {};
   const values: Record<string, string> = state?.values ?? {};
+
+  // Controlled so the audio uploader can write into it; seeded from the
+  // server-returned values (e.g., after a validation re-render).
+  const [rawNotes, setRawNotes] = useState<string>(values.raw_notes ?? "");
+
+  const handleTranscript = (transcript: string) => {
+    setRawNotes((current) => {
+      const trimmedExisting = current.trim();
+      // If the textarea has prior content, append below a blank line so the
+      // user can see what came from typing vs. from the recording.
+      if (trimmedExisting.length === 0) return transcript;
+      return `${current.replace(/\s+$/, "")}\n\n${transcript}`;
+    });
+  };
 
   return (
     <form action={formAction} className="space-y-8">
@@ -117,18 +137,31 @@ export function NewQuoteForm() {
           </Select>
         </Field>
 
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-saguaro-black">
+            Site walk recording
+            <span className="ml-2 text-xs font-normal text-stone-gray">optional</span>
+          </label>
+          <AudioUploader onTranscript={handleTranscript} />
+          <p className="text-xs text-stone-gray">
+            Drop a site-walk recording and we'll transcribe it with Deepgram —
+            the text drops into the notes below for you to review before drafting.
+          </p>
+        </div>
+
         <Field
           label="Site walk notes"
           htmlFor="raw_notes"
           required
-          hint="Paste raw notes from the visit. Be messy — the agent will pull structured scope and surface anything it can't pin down."
+          hint="Type your notes, paste them, or let the transcript above fill this in. Be messy — the agent will pull structured scope and surface anything it can't pin down."
           error={errors.raw_notes}
         >
           <Textarea
             id="raw_notes"
             name="raw_notes"
             rows={10}
-            defaultValue={values.raw_notes ?? ""}
+            value={rawNotes}
+            onChange={(e) => setRawNotes(e.target.value)}
             invalid={Boolean(errors.raw_notes)}
             placeholder="Site walk Mon morning — Claire wants travertine patio replacing the existing concrete slab, roughly 16x20. Cedar pergola over the dining area, lighting package..."
           />
