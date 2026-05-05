@@ -1,37 +1,31 @@
 /**
  * Branded PDF template for the customer-facing proposal.
  *
- * react-pdf does not parse markdown — it renders React elements. We build
- * the page tree directly from the structured data (priced_items, customer,
- * quote.payment_schedule, etc.) — the proposal markdown stored on the quote
- * is the admin-facing edit surface; THIS template is what the customer sees.
+ * react-pdf does not parse markdown — it renders React elements. We take
+ * the parsed sections (same parser the on-screen editor uses) and walk
+ * them, rendering each section's body as paragraphs and bullet lists.
+ * Two sections carry structured data and are NOT taken from the markdown
+ * body — they are re-derived from the live data so the PDF stays in
+ * lockstep with the line items panel and the quote's payment schedule:
  *
- * Both surfaces are rendered from the same source data, so they should
- * always match in content. If Marcus edits the markdown the PDF still
- * regenerates from line items, not from the markdown — keeping the PDF
- * structurally consistent with the priced_items table.
+ *   - Detailed Scope & Pricing → table from `line_items` + total
+ *   - Terms & Next Steps      → payment schedule (%, no $) + LLM/edited
+ *                                "rest" body
+ *
+ * The first parsed section is rendered as a greeting paragraph (no
+ * heading) — the cover page already shows "Prepared for {customer.name}"
+ * so a duplicate H2 right under it would look redundant.
  *
  * Sections (in render order):
- *   - Cover page (proposal #, customer name, address, date, brand mark)
- *   - Greeting (synthesized; PDF doesn't yet pull markdown's greeting line)
- *   - Scope summary (auto-generated from line item categories)
- *   - Detailed Scope & Pricing table (grouped by category; tabular numerals)
- *   - Project total (terracotta accent line)
- *   - Render badge if needs_render (>$30K)
- *   - Exclusions
- *   - Timeline
- *   - Warranty
- *   - Terms (per-quote payment schedule)
- *   - Signature
+ *   - Cover page
+ *   - Greeting (section 0 body, no heading)
+ *   - For each remaining section: heading + body, with the two structured
+ *     sections re-derived as above
+ *   - Signature block (fixed)
+ *   - Page footer (fixed)
  *
- * Fonts: react-pdf's bundled Helvetica + Times-Roman to avoid depending on
- * a network fetch at render time. (We tried Google Fonts CDN URLs; they
- * 404'd on Inter weight 600.) Day-1 swap to local Inter/Cormorant via
- * `Font.register({ src: "/fonts/Inter-Regular.ttf" })` once a font asset
- * pipeline lands.
- *
- * Brand colors mirror tailwind.config.ts: Mojave Green / Sandstone /
- * Caliche White / Adobe / Sunset Terracotta.
+ * Fonts: react-pdf's bundled Helvetica + Times-Roman (no network fetch).
+ * Brand colors mirror tailwind.config.ts.
  */
 
 import {
@@ -41,7 +35,17 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
-import type { Customer, Quote, QuoteLineItem } from "@/lib/types";
+import type { Customer, PaymentScheduleItem, Quote, QuoteLineItem } from "@/lib/types";
+import { DEFAULT_PAYMENT_SCHEDULE } from "@/lib/types";
+import {
+  isScopePricingSection,
+  isSignatureSection,
+  isTermsSection,
+  parsePdfBody,
+  parseSections,
+  stripPaymentSchedule,
+  type Section,
+} from "@/lib/proposal/sections";
 
 const COLORS = {
   mojaveGreen: "#2C4A3A",
@@ -149,10 +153,10 @@ const styles = StyleSheet.create({
   // Body
   sectionHeading: {
     fontFamily: "Times-Roman",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 600,
     color: COLORS.mojaveGreen,
-    marginTop: 18,
+    marginTop: 16,
     marginBottom: 6,
     paddingBottom: 4,
     borderBottomWidth: 1,
@@ -161,11 +165,11 @@ const styles = StyleSheet.create({
   paragraph: {
     fontSize: 11,
     lineHeight: 1.6,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   bullet: {
     flexDirection: "row",
-    marginBottom: 4,
+    marginBottom: 3,
   },
   bulletDot: {
     width: 12,
@@ -216,9 +220,9 @@ const styles = StyleSheet.create({
 
   // Total
   totalRow: {
-    marginTop: 14,
-    paddingTop: 14,
-    paddingBottom: 14,
+    marginTop: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderTopWidth: 2,
     borderTopColor: COLORS.terracotta,
     flexDirection: "row",
@@ -227,14 +231,14 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontFamily: "Times-Roman",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 600,
     color: COLORS.saguaro,
     marginRight: 14,
   },
   totalAmount: {
     fontFamily: "Times-Roman",
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 600,
     color: COLORS.mojaveGreen,
   },
@@ -267,12 +271,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: COLORS.stone,
   },
-  termsText: {
-    fontSize: 9,
-    color: COLORS.stone,
-    marginBottom: 4,
-    lineHeight: 1.5,
-  },
 
   // Footer
   pageFooter: {
@@ -290,28 +288,7 @@ interface ProposalPdfProps {
   customer: Customer;
   quote: Quote;
   line_items: QuoteLineItem[];
-  /** Optional greeting paragraph; if omitted we synthesize a short one. */
-  greeting?: string;
-  /** Optional scope summary bullets; if omitted we synthesize from line items. */
-  scope_summary?: string[];
-  /** Bullets for "what's NOT included" — kills dispute risk per research Q4. */
-  exclusions?: string[];
 }
-
-const DEFAULT_EXCLUSIONS = [
-  "HOA submission fees beyond what's noted in the line items",
-  "Plant material outside any explicit allowance",
-  "Demolition or repair of items not listed in the scope",
-  "Site work outside the defined project zones",
-  "Permit fees beyond Phoenix municipal standard",
-];
-
-const DEFAULT_WARRANTY = [
-  "2-year workmanship warranty on hardscape installation",
-  "1-year warranty on irrigation components",
-  "90-day warranty on plant material",
-  "All manufacturer warranties pass through to you",
-];
 
 function formatCurrency(n: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -333,53 +310,126 @@ function formatDate(s: string): string {
   );
 }
 
-function defaultScopeSummary(line_items: QuoteLineItem[]): string[] {
-  // Group by category, summarize.
-  const byCat = new Map<string, QuoteLineItem[]>();
-  for (const li of line_items) {
-    const arr = byCat.get(li.category) ?? [];
-    arr.push(li);
-    byCat.set(li.category, arr);
-  }
-  const lines: string[] = [];
-  for (const [cat, items] of byCat) {
-    if (cat === "universal") continue;
-    const main = items[0];
-    if (main.unit === "sq_ft" || main.unit === "linear_ft") {
-      lines.push(`${main.line_item_name_snapshot} — ${formatNumber(main.quantity)} ${main.unit.replace("_", " ")}`);
-    } else {
-      lines.push(main.line_item_name_snapshot);
-    }
-    for (const sub of items.slice(1)) {
-      lines.push(`  · ${sub.line_item_name_snapshot}`);
-    }
-  }
-  return lines;
+// -- Body fragments -------------------------------------------------------
+
+/**
+ * Render a section body (paragraphs + bullet lists) using react-pdf
+ * primitives. Bold/italic/code is stripped to plain text inside the parser.
+ */
+function BodyBlocks({ body }: { body: string }) {
+  const blocks = parsePdfBody(body);
+  if (blocks.length === 0) return null;
+  return (
+    <>
+      {blocks.map((b, i) => {
+        if (b.kind === "para") {
+          return (
+            <Text key={i} style={styles.paragraph}>
+              {b.text}
+            </Text>
+          );
+        }
+        return (
+          <View key={i} style={{ marginBottom: 8 }}>
+            {b.items.map((item, j) => (
+              <View key={j} style={styles.bullet} wrap={false}>
+                <Text style={styles.bulletDot}>·</Text>
+                <Text style={styles.bulletText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        );
+      })}
+    </>
+  );
 }
 
-export function ProposalPdf({
-  customer,
-  quote,
+function PricingTable({
   line_items,
-  greeting,
-  scope_summary,
-  exclusions,
-}: ProposalPdfProps) {
+  total,
+}: {
+  line_items: QuoteLineItem[];
+  total: number;
+}) {
+  return (
+    <>
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.cellDescription, styles.tableHeaderCell]}>Description</Text>
+          <Text style={[styles.cellQty, styles.tableHeaderCell]}>Qty</Text>
+          <Text style={[styles.cellUnit, styles.tableHeaderCell]}>Unit</Text>
+          <Text style={[styles.cellPrice, styles.tableHeaderCell]}>Unit price</Text>
+          <Text style={[styles.cellTotal, styles.tableHeaderCell]}>Total</Text>
+        </View>
+        {line_items.map((li, i) => (
+          <View key={li.id || i} style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}>
+            <Text style={styles.cellDescription}>{li.line_item_name_snapshot}</Text>
+            <Text style={styles.cellQty}>{formatNumber(Number(li.quantity))}</Text>
+            <Text style={styles.cellUnit}>{li.unit.replace("_", " ")}</Text>
+            <Text style={styles.cellPrice}>{formatCurrency(Number(li.unit_price_snapshot))}</Text>
+            <Text style={styles.cellTotal}>{formatCurrency(Number(li.line_total))}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.totalRow}>
+        <Text style={styles.totalLabel}>Project total</Text>
+        <Text style={styles.totalAmount}>{formatCurrency(total)}</Text>
+      </View>
+    </>
+  );
+}
+
+function PaymentScheduleBullets({ schedule }: { schedule: PaymentScheduleItem[] }) {
+  const items = schedule.length > 0 ? schedule : DEFAULT_PAYMENT_SCHEDULE;
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <Text style={[styles.paragraph, { fontWeight: 600, marginBottom: 4 }]}>Payment schedule:</Text>
+      {items.map((s, i) => (
+        <View key={i} style={styles.bullet} wrap={false}>
+          <Text style={styles.bulletDot}>·</Text>
+          <Text style={styles.bulletText}>
+            {s.pct}% {s.milestone}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function SignatureGrid({ customerName }: { customerName: string }) {
+  return (
+    <View style={styles.signatureBlock} wrap={false}>
+      <View style={styles.signatureCol}>
+        <View style={styles.signatureLine} />
+        <Text style={styles.signatureCaption}>Customer signature · {customerName}</Text>
+        <View style={[styles.signatureLine, { height: 18, marginTop: 12 }]} />
+        <Text style={styles.signatureCaption}>Date</Text>
+      </View>
+      <View style={styles.signatureCol}>
+        <View style={styles.signatureLine} />
+        <Text style={styles.signatureCaption}>Marcus Tate · Greenscape Pro</Text>
+        <View style={[styles.signatureLine, { height: 18, marginTop: 12 }]} />
+        <Text style={styles.signatureCaption}>Date</Text>
+      </View>
+    </View>
+  );
+}
+
+// -- Main -----------------------------------------------------------------
+
+export function ProposalPdf({ customer, quote, line_items }: ProposalPdfProps) {
   const total = line_items.reduce((s, li) => s + Number(li.line_total), 0);
   const proposalNumber = `GP-${quote.id.slice(0, 8).toUpperCase()}`;
   const dateStr = formatDate(quote.created_at);
-  const summary = scope_summary ?? defaultScopeSummary(line_items);
-  const exclusionList = exclusions ?? DEFAULT_EXCLUSIONS;
-  const greetingText =
-    greeting ??
-    `Thanks for walking the yard. The scope below reflects what we discussed — clear pricing, premium materials, no surprises. Any questions, call me directly.`;
-  const paymentSchedule =
-    (quote.payment_schedule as { milestone: string; pct: number }[] | undefined) ?? [
-      { milestone: "deposit", pct: 30 },
-      { milestone: "mobilization", pct: 30 },
-      { milestone: "midpoint", pct: 30 },
-      { milestone: "completion", pct: 10 },
-    ];
+  const paymentSchedule = (quote.payment_schedule ?? DEFAULT_PAYMENT_SCHEDULE) as PaymentScheduleItem[];
+
+  const { sections } = parseSections(quote.proposal_markdown ?? "");
+  const greetingSection: Section | null = sections.length > 0 ? sections[0] : null;
+  const restSections = sections.slice(1);
+  // If the LLM produced its own signature section we render the structured
+  // signature block under that section's heading; otherwise we append one.
+  const hasSignatureSection = restSections.some((s) => isSignatureSection(s.title));
 
   return (
     <Document
@@ -407,104 +457,61 @@ export function ProposalPdf({
 
       {/* Body */}
       <Page size="LETTER" style={styles.page}>
-        {/* Greeting */}
-        <Text style={styles.sectionHeading}>{customer.name}</Text>
-        <Text style={styles.paragraph}>{greetingText}</Text>
+        {/* Greeting (no heading — cover already shows the customer name) */}
+        {greetingSection ? <BodyBlocks body={greetingSection.body} /> : null}
 
-        {/* Scope summary */}
-        <Text style={styles.sectionHeading}>Scope summary</Text>
-        {summary.map((line, i) => (
-          <View key={i} style={styles.bullet}>
-            <Text style={styles.bulletDot}>·</Text>
-            <Text style={styles.bulletText}>{line}</Text>
-          </View>
-        ))}
-
-        {/* Pricing */}
-        <Text style={styles.sectionHeading}>Pricing</Text>
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.cellDescription, styles.tableHeaderCell]}>Description</Text>
-            <Text style={[styles.cellQty, styles.tableHeaderCell]}>Qty</Text>
-            <Text style={[styles.cellUnit, styles.tableHeaderCell]}>Unit</Text>
-            <Text style={[styles.cellPrice, styles.tableHeaderCell]}>Unit price</Text>
-            <Text style={[styles.cellTotal, styles.tableHeaderCell]}>Total</Text>
-          </View>
-          {line_items.map((li, i) => (
-            <View key={li.id || i} style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}>
-              <Text style={styles.cellDescription}>{li.line_item_name_snapshot}</Text>
-              <Text style={styles.cellQty}>{formatNumber(Number(li.quantity))}</Text>
-              <Text style={styles.cellUnit}>{li.unit.replace("_", " ")}</Text>
-              <Text style={styles.cellPrice}>{formatCurrency(Number(li.unit_price_snapshot))}</Text>
-              <Text style={styles.cellTotal}>{formatCurrency(Number(li.line_total))}</Text>
+        {/* Remaining sections */}
+        {restSections.map((s, i) => {
+          if (isScopePricingSection(s.title)) {
+            return (
+              <View key={i} wrap={false}>
+                <Text style={styles.sectionHeading}>{s.title}</Text>
+                <PricingTable line_items={line_items} total={total} />
+                {quote.needs_render && (
+                  <Text style={styles.renderBadge}>
+                    This project includes a 3D render from Carlos so you can see the design before
+                    fabrication.
+                  </Text>
+                )}
+              </View>
+            );
+          }
+          if (isTermsSection(s.title)) {
+            const restBody = stripPaymentSchedule(s.body);
+            return (
+              <View key={i}>
+                <Text style={styles.sectionHeading}>{s.title}</Text>
+                <PaymentScheduleBullets schedule={paymentSchedule} />
+                <BodyBlocks body={restBody} />
+              </View>
+            );
+          }
+          if (isSignatureSection(s.title)) {
+            // Use the LLM's heading but render our structured signature
+            // block — the LLM's body is just placeholder lines for the
+            // same fields (Customer / Date / Greenscape Pro / Date).
+            return (
+              <View key={i}>
+                <Text style={styles.sectionHeading}>{s.title}</Text>
+                <SignatureGrid customerName={customer.name} />
+              </View>
+            );
+          }
+          return (
+            <View key={i}>
+              <Text style={styles.sectionHeading}>{s.title}</Text>
+              <BodyBlocks body={s.body} />
             </View>
-          ))}
-        </View>
+          );
+        })}
 
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Project total</Text>
-          <Text style={styles.totalAmount}>{formatCurrency(total)}</Text>
-        </View>
-
-        {quote.needs_render && (
-          <Text style={styles.renderBadge}>
-            This project includes a 3D render from Carlos so you can see the design before fabrication.
-          </Text>
-        )}
-
-        {/* Exclusions */}
-        <Text style={styles.sectionHeading}>Exclusions</Text>
-        {exclusionList.map((line, i) => (
-          <View key={i} style={styles.bullet}>
-            <Text style={styles.bulletDot}>·</Text>
-            <Text style={styles.bulletText}>{line}</Text>
-          </View>
-        ))}
-
-        {/* Timeline */}
-        <Text style={styles.sectionHeading}>Timeline</Text>
-        <Text style={styles.paragraph}>
-          We&apos;re currently booking ~6 weeks out. Once the deposit is in, the build runs in
-          phases. Phoenix heat means crews work 7-hour days; we plan around it. You&apos;ll get a
-          weekly update every Friday until completion.
-        </Text>
-
-        {/* Warranty */}
-        <Text style={styles.sectionHeading}>Warranty</Text>
-        {DEFAULT_WARRANTY.map((line, i) => (
-          <View key={i} style={styles.bullet}>
-            <Text style={styles.bulletDot}>·</Text>
-            <Text style={styles.bulletText}>{line}</Text>
-          </View>
-        ))}
-
-        {/* Terms */}
-        <Text style={styles.sectionHeading}>Terms & next steps</Text>
-        {paymentSchedule.map((m, i) => (
-          <Text key={i} style={styles.termsText}>
-            · {m.pct}% at {m.milestone}
-          </Text>
-        ))}
-        <Text style={styles.termsText}>· Proposal valid for 30 days from the date above.</Text>
-        <Text style={styles.termsText}>· Change orders are priced and signed before any change in scope.</Text>
-        <Text style={styles.termsText}>· See Warranty section above for coverage details.</Text>
-
-        {/* Signature */}
-        <Text style={styles.sectionHeading}>Signature</Text>
-        <View style={styles.signatureBlock}>
-          <View style={styles.signatureCol}>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureCaption}>Customer signature · {customer.name}</Text>
-            <View style={[styles.signatureLine, { height: 18, marginTop: 12 }]} />
-            <Text style={styles.signatureCaption}>Date</Text>
-          </View>
-          <View style={styles.signatureCol}>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureCaption}>Marcus Tate · Greenscape Pro</Text>
-            <View style={[styles.signatureLine, { height: 18, marginTop: 12 }]} />
-            <Text style={styles.signatureCaption}>Date</Text>
-          </View>
-        </View>
+        {/* Append our signature block only if the LLM didn't already produce one */}
+        {!hasSignatureSection ? (
+          <>
+            <Text style={styles.sectionHeading}>Signature</Text>
+            <SignatureGrid customerName={customer.name} />
+          </>
+        ) : null}
 
         <Text style={styles.pageFooter} fixed>
           Greenscape Pro · Phoenix, AZ · Proposal {proposalNumber}

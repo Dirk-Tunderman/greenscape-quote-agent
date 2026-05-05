@@ -34,116 +34,17 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/Button";
 import type { PaymentScheduleItem, QuoteLineItem } from "@/lib/types";
-import { DEFAULT_PAYMENT_SCHEDULE } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import {
+  generatePaymentSchedule,
+  generateScopePricingBody,
+  isScopePricingSection,
+  isTermsSection,
+  parseSections,
+  recombineSections,
+  stripPaymentSchedule,
+  type Section,
+} from "@/lib/proposal/sections";
 import { updateProposalAction } from "./actions";
-
-interface Section {
-  title: string;
-  body: string;
-}
-
-interface Parsed {
-  prefix: string;
-  sections: Section[];
-}
-
-function parseSections(md: string): Parsed {
-  let firstHeader: number;
-  if (md.startsWith("## ")) {
-    firstHeader = 0;
-  } else {
-    const idx = md.search(/\n##\s+/);
-    firstHeader = idx >= 0 ? idx + 1 : -1;
-  }
-  if (firstHeader < 0) return { prefix: md, sections: [] };
-
-  const prefix = md.slice(0, firstHeader);
-  const body = md.slice(firstHeader);
-  const chunks = body.split(/\n##\s+/);
-  if (chunks[0].startsWith("## ")) chunks[0] = chunks[0].slice(3);
-
-  const sections = chunks.map((chunk) => {
-    const nl = chunk.indexOf("\n");
-    if (nl < 0) return { title: chunk.trim(), body: "" };
-    return { title: chunk.slice(0, nl).trim(), body: chunk.slice(nl + 1) };
-  });
-  return { prefix, sections };
-}
-
-function recombineSections(prefix: string, sections: Section[]): string {
-  if (sections.length === 0) return prefix;
-  const parts = sections.map((s) => `## ${s.title}\n${s.body}`);
-  return prefix + parts.join("\n");
-}
-
-// --- Auto-derived section bodies -----------------------------------------
-
-function isScopePricingSection(title: string): boolean {
-  const t = title.toLowerCase();
-  return t.includes("scope") && t.includes("pricing");
-}
-
-function isTermsSection(title: string): boolean {
-  const t = title.toLowerCase();
-  return t.includes("terms") || t.includes("next steps");
-}
-
-function generateScopePricingBody(items: QuoteLineItem[], total: number): string {
-  if (items.length === 0) {
-    return `_No line items yet — add some in the Line items panel above._\n\n**Project Total: $0.00**`;
-  }
-  const header =
-    `| Description | Qty | Unit | Unit Price | Line Total |\n` +
-    `|---|---:|---|---:|---:|`;
-  const rows = items.map((li) => {
-    const desc = (li.line_item_name_snapshot || "—").replace(/\|/g, "\\|");
-    return `| ${desc} | ${li.quantity} | ${li.unit} | ${formatCurrency(li.unit_price_snapshot)} | ${formatCurrency(li.line_total)} |`;
-  });
-  return `${header}\n${rows.join("\n")}\n\n**Project Total: ${formatCurrency(total)}**`;
-}
-
-function generatePaymentSchedule(total: number, schedule: PaymentScheduleItem[]): string {
-  const items = schedule.length > 0 ? schedule : DEFAULT_PAYMENT_SCHEDULE;
-  const lines = items.map((s) => {
-    const amt = (total * s.pct) / 100;
-    return `- ${s.pct}% ${s.milestone} (${formatCurrency(amt)})`;
-  });
-  return `**Payment schedule:**\n${lines.join("\n")}`;
-}
-
-/**
- * Strip the existing payment-schedule block from a Terms-section body.
- * Returns just the "rest" — Other terms, closing paragraph, anything else
- * Marcus has typed. Tolerant of variations in the agent's output.
- */
-function stripPaymentSchedule(body: string): string {
-  const lines = body.split("\n");
-  let scheduleStart = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (/payment\s+schedule/i.test(lines[i])) {
-      scheduleStart = i;
-      break;
-    }
-  }
-  if (scheduleStart < 0) return body;
-
-  let scheduleEnd = scheduleStart + 1;
-  while (scheduleEnd < lines.length) {
-    const ln = lines[scheduleEnd].trim();
-    if (ln === "" || ln.startsWith("-") || ln.startsWith("*") || /^\d+%/.test(ln)) {
-      scheduleEnd++;
-      continue;
-    }
-    break;
-  }
-  const before = lines.slice(0, scheduleStart);
-  const after = lines.slice(scheduleEnd);
-  while (before.length && before[before.length - 1].trim() === "") before.pop();
-  while (after.length && after[0].trim() === "") after.shift();
-  if (before.length && after.length) before.push("");
-  return [...before, ...after].join("\n");
-}
 
 // --- Component ------------------------------------------------------------
 
@@ -192,8 +93,8 @@ export function ProposalEditor({
     [lineItems, total]
   );
   const derivedSchedule = useMemo(
-    () => generatePaymentSchedule(total, paymentSchedule),
-    [total, paymentSchedule]
+    () => generatePaymentSchedule(paymentSchedule),
+    [paymentSchedule]
   );
 
   const buildSection = (i: number, s: Section): Section => {
@@ -478,7 +379,7 @@ function TermsCard({
       <div className="px-4 py-3 space-y-3">
         <div>
           <p className="text-xs text-stone-gray mb-1.5">
-            Payment schedule (auto-synced with project total):
+            Payment schedule (percentages of the project total):
           </p>
           <div className="prose-proposal bg-caliche-white border border-adobe rounded p-3 text-sm">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{derivedSchedule}</ReactMarkdown>
