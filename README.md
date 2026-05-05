@@ -48,6 +48,7 @@ Grouped by concern. Read `STATUS.md` first for current state across the multi-ch
 - [`docs/05-build-plan.md`](./docs/05-build-plan.md) — sequenced 18h build plan, phases 0-10
 - [`docs/07-next-session-plan.md`](./docs/07-next-session-plan.md) — multi-chat orchestration plan
 - [`docs/09-decision-log.md`](./docs/09-decision-log.md) — every key decision + reasoning (don't undo without approval)
+- [`docs/12-deployment.md`](./docs/12-deployment.md) — server, DNS, TLS, systemd, Caddy, deploy + teardown reference
 
 ## Stack
 
@@ -69,7 +70,7 @@ npm run dev
 
 ## Deployment
 
-Deployed URL: _TBD — populated once build is live_
+Deployed URL: **https://quote-agent.tunderman.cc** (Hetzner Server 1, Caddy + systemd, temporary ~1-week deploy). Full deployment reference: [`docs/12-deployment.md`](./docs/12-deployment.md). Teardown: [`scripts/teardown.sh`](./scripts/teardown.sh).
 
 ## Submission
 

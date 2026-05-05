@@ -118,7 +118,8 @@ Phase progression (from `docs/05-build-plan.md`):
   - Stopped hello-world service after verify (Chat A's code will replace)
   - Final verification gate: all 6 SchilderGroei + lead-website services + Caddy `active`; service-list diff vs pre-change snapshot **identical**; Caddy validate clean
   - Wrote `scripts/teardown.sh` (idempotent, confirmation-gated cleanup of DNS/Caddy/service/dir for end of demo window)
-- **Last commit:** see git log (Chat C: server-side prep; Chat C: publish)
+  - **Wrote `docs/12-deployment.md`** — canonical deployment reference (request path, file layout, DNS, Caddy block, systemd unit, deploy procedure, env expectations, verification gate, troubleshooting matrix, isolation rules, teardown, maintenance notes). Tightened inline comments in `scripts/teardown.sh`. Updated README's Deploy URL + docs index.
+- **Last commit:** see git log (Chat C: docs/12-deployment + inline comments)
 - **Blockers:** none
 - **Waiting on:** Chat A to deploy code into `/opt/greenscape-quote-agent` and `systemctl restart greenscape-quote-agent`
 
