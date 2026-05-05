@@ -56,15 +56,19 @@ Greenscape Pro is **fulfillment-constrained**, not acquisition-constrained. Marc
 
 ## #3 — Pre-Qualification Agent
 
-**Purpose:** Filter unqualified leads via SMS *before* they hit Marcus's calendar. Ships in week 1. Frees Marcus time AND structures intake data that compounds with #1.
+**Purpose:** Qualify leads at the **Meta lead form intake** (before they hit Marcus's calendar) — extra form fields + AI scoring at the moment of peak intent. Ships in week 1. Frees Marcus time AND structures intake data that compounds with #1.
 
-- SMS qualifier asking 4–5 questions Marcus already asks in the first 2 minutes of every call (transcript line 67): budget tier, timeline, owner vs renter, project category, HOA y/n
-- Routes qualified leads to Marcus's calendar; sends polite no-fit response otherwise
-- Stores structured intake data; passes to #1 quote agent for scope extraction pre-fill
-- Logs all responses for ICP refinement
-- Marcus reviews edge-case leads (anything between "good" and "bad") in admin
+- Extends Marcus's existing Meta instant lead form (already Zapier→GHL per onboarding line 58) with 4–5 qualifying fields he asks in the first 2 minutes of every call (transcript line 67): budget tier, timeline, owner vs renter, project category, HOA y/n
+- AI scores each submission in real-time against Marcus's ICP
+- **Good fit** → calendar booking link sent automatically + Marcus pinged
+- **Borderline** → routed to a Marcus-review queue (no auto-decline, no auto-book)
+- **Bad fit** → polite no-fit response; logged for ICP refinement
+- Structured intake data passes to #1 Quote Agent for scope extraction pre-fill
+- Marcus's existing GHL pipeline stays the system of record (per Jenna's directive, transcript line 131)
 
 **Replaces:** Marcus's "I call everyone" workflow (transcript line 67); 4–6 unqualified calls/week.
+
+**Why form-level (not SMS):** Intent is hottest at form-fill. SMS qualifier adds a second touchpoint where leads ghost; form-level has a single decision point and zero new vendor (Meta forms support custom fields natively). The agent is an intake **scoring + routing** layer, not an outbound messaging layer.
 
 **ROI:**
 - *Doc-anchored time:* Auditor estimate (transcript line 73): **1–2 hrs/week of Marcus time saved**
