@@ -26,12 +26,13 @@
 
 import type {
   DraftRequestBody,
+  ItemCategory,
   LineItem,
+  LineItemUnit,
   Quote,
   QuoteDetail,
-  QuoteLineItem,
-  QuoteStatus,
   QuoteSummary,
+  QuoteStatus,
 } from "@/lib/types";
 
 function apiBase(): string {
@@ -116,66 +117,75 @@ export async function createDraft(body: DraftRequestBody): Promise<CreateDraftRe
   return { quote_id: result.quote_id };
 }
 
-export interface PatchLineItemInput {
-  id: string;
-  quantity?: number;
-  unit_price_snapshot?: number;
-  notes?: string;
-}
-
 export interface PatchQuoteInput {
   proposal_markdown?: string;
-  line_items?: PatchLineItemInput[];
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Apply a non-line-item patch to a quote (proposal_markdown today; could
+ * grow to handle other top-level fields). For line items use
+ * `replaceLineItems` — the backend uses drop+insert semantics, so a full
+ * list is the natural unit of edit.
+ */
 export async function patchQuote(quoteId: string, patch: PatchQuoteInput): Promise<{ total: number }> {
   const body: Record<string, unknown> = {};
-
   if (patch.proposal_markdown !== undefined) {
     body.proposal_markdown = patch.proposal_markdown;
   }
+  const { quote } = await api<{ quote: Quote }>(`/api/quotes/${quoteId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  return { total: Number(quote.total_amount) };
+}
 
-  if (patch.line_items && patch.line_items.length > 0) {
-    // The PATCH endpoint expects FULL line item objects (drop + insert
-    // semantics). Fetch the current items, apply per-id patches, and send
-    // the merged array. One extra GET per save — acceptable for the demo.
-    const current = await api<QuoteDetail>(`/api/quotes/${quoteId}`);
-    const merged = current.line_items.map((li) => {
-      const incoming = patch.line_items!.find((p) => p.id === li.id);
-      if (!incoming) return li;
-      const quantity = incoming.quantity ?? li.quantity;
-      const unit_price = incoming.unit_price_snapshot ?? li.unit_price_snapshot;
-      const notes = incoming.notes ?? li.notes;
-      return {
-        ...li,
-        quantity,
-        unit_price_snapshot: unit_price,
-        line_total: Math.round(quantity * unit_price * 100) / 100,
-        notes,
-      };
-    });
-    body.line_items = merged.map((li) => ({
-      // The PATCH zod schema accepts UUID for id, optional. Pass through
-      // when valid; otherwise omit so the server inserts a fresh row.
-      ...(UUID_RE.test(li.id) ? { id: li.id } : {}),
+/**
+ * The shape the client sends per row. `id` is optional — only valid UUIDs
+ * are passed through (so client-only ids like `tmp_abc` are stripped and
+ * the backend treats the row as a fresh insert).
+ */
+export interface ReplacementLineItem {
+  id?: string;
+  line_item_id: string | null;
+  line_item_name_snapshot: string;
+  category: ItemCategory;
+  unit: LineItemUnit;
+  quantity: number;
+  unit_price_snapshot: number;
+  notes: string;
+}
+
+/**
+ * Replace the full line-items list for a quote. Backend drops the existing
+ * rows and inserts the new ones; the quote's total_amount is recomputed
+ * server-side. Empty list = all line items removed.
+ *
+ * Use this for any line-item change (edit, add, delete) — the client
+ * always sends the full state, so we don't need diff logic.
+ */
+export async function replaceLineItems(
+  quoteId: string,
+  items: ReplacementLineItem[]
+): Promise<{ total: number }> {
+  const body = {
+    line_items: items.map((li) => ({
+      ...(li.id && UUID_RE.test(li.id) ? { id: li.id } : {}),
       line_item_id: li.line_item_id,
       line_item_name_snapshot: li.line_item_name_snapshot,
       category: li.category,
       unit: li.unit,
       quantity: li.quantity,
       unit_price_snapshot: li.unit_price_snapshot,
-      line_total: li.line_total,
+      line_total: Math.round(li.quantity * li.unit_price_snapshot * 100) / 100,
       notes: li.notes ?? "",
-    }));
-  }
-
+    })),
+  };
   const { quote } = await api<{ quote: Quote }>(`/api/quotes/${quoteId}`, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
-
   return { total: Number(quote.total_amount) };
 }
 

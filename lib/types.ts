@@ -92,7 +92,9 @@ export interface Quote {
 export interface QuoteLineItem {
   id: string;
   quote_id: string;
-  line_item_id: string;
+  // Nullable: rows added by Marcus manually (custom items) have no
+  // catalog FK. Agent-emitted rows reference greenscape.line_items.
+  line_item_id: string | null;
   line_item_name_snapshot: string;
   category: ItemCategory;
   unit: LineItemUnit;

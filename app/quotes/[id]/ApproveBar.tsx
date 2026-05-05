@@ -6,6 +6,18 @@ import { Button } from "@/components/Button";
 import { Modal } from "@/components/Modal";
 import { approveAndDownloadAction } from "./actions";
 
+/**
+ * Approve & download PDF button + confirm modal.
+ *
+ * PDF generation is no longer terminal — Marcus can edit line items or
+ * sections, re-click this button, and get a fresh PDF. The button label
+ * adapts:
+ *   - first time (`draft_ready` / `validation_failed`): "Approve & download PDF"
+ *   - subsequent (`sent`): "Re-generate PDF"
+ *
+ * Hidden only on outcome states (accepted/rejected/lost) — those are
+ * locked because the customer signed.
+ */
 export function ApproveBar({
   quoteId,
   customerName,
@@ -23,7 +35,18 @@ export function ApproveBar({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const blocked = status !== "draft_ready";
+  // Outcome-locked states hide the button entirely.
+  if (status === "accepted" || status === "rejected" || status === "lost") {
+    return null;
+  }
+  // In-flight states block re-entry but keep the button visible (disabled).
+  const blocked = status === "drafting" || status === "sending";
+  const isReGenerate = status === "sent";
+
+  const buttonLabel = isReGenerate ? "Re-generate PDF" : "Approve & download PDF";
+  const modalTitle = isReGenerate ? "Re-generate proposal PDF" : "Generate proposal PDF";
+  const ctaPending = pending ? (isReGenerate ? "Regenerating…" : "Generating…") : null;
+  const ctaIdle = isReGenerate ? "Re-generate & download" : "Generate & download";
 
   const onConfirm = () => {
     setError(null);
@@ -33,7 +56,6 @@ export function ApproveBar({
         setError(res.error);
         return;
       }
-      // Open the signed PDF in a new tab — Marcus reviews/saves from there.
       if (typeof window !== "undefined") {
         window.open(res.pdf_url, "_blank", "noopener,noreferrer");
       }
@@ -42,44 +64,44 @@ export function ApproveBar({
     });
   };
 
-  if (status === "sent" || status === "accepted" || status === "rejected" || status === "lost") {
-    return null;
-  }
-
   return (
     <>
       <Button
         size="lg"
         onClick={() => setOpen(true)}
         disabled={blocked}
-        title={blocked ? `Cannot approve while status is "${status}"` : undefined}
+        title={blocked ? `Cannot generate while status is "${status}"` : undefined}
       >
-        Approve & download PDF
+        {buttonLabel}
       </Button>
 
       <Modal
         open={open}
         onClose={() => !pending && setOpen(false)}
-        title="Generate proposal PDF"
+        title={modalTitle}
         footer={
           <>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
               Cancel
             </Button>
             <Button onClick={onConfirm} disabled={pending}>
-              {pending ? "Generating…" : "Generate & download"}
+              {ctaPending ?? ctaIdle}
             </Button>
           </>
         }
       >
         <div className="space-y-4 text-sm text-saguaro-black">
           <p>
-            This will render the branded PDF for{" "}
-            <span className="font-medium">{customerName}</span>, store it, and
-            open it in a new tab so you can save or send it from there.
+            {isReGenerate
+              ? "This regenerates the PDF for "
+              : "This renders the branded PDF for "}
+            <span className="font-medium">{customerName}</span>
+            {isReGenerate
+              ? ", replaces the stored copy, and opens it in a new tab. The previous URL is invalidated."
+              : ", stores it, and opens it in a new tab so you can save or send it from there."}
           </p>
           <p className="text-stone-gray">
-            Project total at finalize:{" "}
+            Project total at generation:{" "}
             <span className="tnum text-saguaro-black font-medium">
               {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(total)}
             </span>

@@ -57,11 +57,14 @@ export default async function QuoteDetailPage({
   if (!detail) notFound();
 
   const { quote, customer, line_items, artifacts, audit_log } = detail;
+  // Editing is locked only after Marcus marks an outcome (accepted / rejected /
+  // lost). Generating a PDF (status=sent) is not terminal — Marcus can keep
+  // editing line items, sections, anything, and re-export the PDF as needed.
   const readOnly =
-    quote.status === "sent" ||
     quote.status === "accepted" ||
     quote.status === "rejected" ||
     quote.status === "lost";
+  const pdfGenerated = quote.status === "sent" || !!quote.pdf_url;
 
   const scopeLabels = artifacts.scope.map(
     (s, i) => `${i + 1}. ${titleCase(s.category)} — ${s.description.slice(0, 50)}${s.description.length > 50 ? "…" : ""}`
@@ -98,9 +101,9 @@ export default async function QuoteDetailPage({
         />
       </div>
 
-      {quote.status === "sent" || quote.status === "accepted" ? (
+      {pdfGenerated && quote.sent_at ? (
         <div className="border-l-4 border-success-green bg-success-green/10 px-4 py-3 rounded-r text-sm">
-          Finalized on{" "}
+          PDF generated{" "}
           <span className="text-saguaro-black">{formatDateTime(quote.sent_at)}</span>
           {quote.pdf_url ? (
             <>
@@ -111,9 +114,12 @@ export default async function QuoteDetailPage({
                 rel="noreferrer"
                 className="text-mojave-green hover:underline underline-offset-4"
               >
-                Download PDF
+                Download last PDF
               </a>
             </>
+          ) : null}
+          {!readOnly ? (
+            <span className="ml-2 text-stone-gray">— edits below regenerate the PDF on next download.</span>
           ) : null}
         </div>
       ) : null}
@@ -220,7 +226,7 @@ export default async function QuoteDetailPage({
       <Card>
         <CardHeader
           title="Line items"
-          subtitle="Edit quantity or unit price inline. Totals recompute on save."
+          subtitle="Edit any cell inline. Add or remove items as needed. Totals recompute on save."
           action={
             <span className="text-xs text-stone-gray">
               {line_items.length} item{line_items.length === 1 ? "" : "s"}
@@ -255,7 +261,7 @@ export default async function QuoteDetailPage({
       <Card>
         <CardHeader
           title="Proposal draft"
-          subtitle={readOnly ? "Read-only — proposal has been finalized." : "Each section is editable. Click Save proposal to commit your edits."}
+          subtitle={readOnly ? "Read-only — outcome is recorded." : "Each section is editable. Click Save proposal to commit your edits."}
         />
         <CardBody>
           <ProposalEditor

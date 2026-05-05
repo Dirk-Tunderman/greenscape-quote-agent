@@ -1,28 +1,28 @@
 /**
- * LineItemsTable — inline-edit grid for quote line items.
+ * LineItemsTable — inline edit + add + delete grid for quote line items.
  *
- * Pattern: optimistic-UI + server action.
- *   1. User clicks a price/qty cell → input renders in place (NumberCell)
- *   2. Blur or Enter commits the edit
- *   3. Local state updates immediately (line_total recomputed)
- *   4. updateLineItemsAction fires in a transition → server persists
- *   5. On error, error state is shown but the optimistic state stays so
- *      the user can retry without losing typing
+ * Save model: every change (cell edit, add, delete) sends the FULL items
+ * array via saveLineItemsAction. Backend does drop+insert and recomputes
+ * the quote total. Optimistic UI on every interaction; on server error
+ * the optimistic state stays so the user can retry without losing input.
  *
- * Items are grouped by category at render time with per-category subtotals.
- * Render-flag (>$30K) appears in tfoot.
+ * Why full-list-replacement (instead of partial patches): adds and deletes
+ * already need the full picture to round-trip cleanly, and putting all
+ * three operations through one path removes diffing complexity.
  *
- * `readOnly=true` (sent/accepted/rejected/lost) renders cells as plain text
- * — no edit affordance, no NumberCell input.
+ * `readOnly=true` (outcome states only — accepted/rejected/lost) renders
+ * cells as plain text and hides the add row + delete affordances. PDF
+ * generation does NOT trigger readOnly — Marcus iterates freely until
+ * outcome is recorded.
  */
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import type { QuoteLineItem } from "@/lib/types";
+import type { ItemCategory, LineItemUnit, QuoteLineItem } from "@/lib/types";
 import { formatCurrency, formatCurrencyWhole, titleCase } from "@/lib/utils";
-import { updateLineItemsAction, type UpdateLineItemPayload } from "./actions";
+import { saveLineItemsAction, type LineItemReplacement } from "./actions";
 
-const UNIT_LABEL: Record<QuoteLineItem["unit"], string> = {
+const UNIT_LABEL: Record<LineItemUnit, string> = {
   sq_ft: "sq ft",
   linear_ft: "lin ft",
   each: "each",
@@ -30,6 +30,43 @@ const UNIT_LABEL: Record<QuoteLineItem["unit"], string> = {
   hour: "hour",
   lump_sum: "lump",
 };
+
+const UNIT_OPTIONS: LineItemUnit[] = ["each", "sq_ft", "linear_ft", "zone", "hour", "lump_sum"];
+
+function makeBlankItem(quoteId: string): QuoteLineItem {
+  // tmp_ id signals "new row" — replaceLineItems strips it before sending,
+  // so the server inserts it as a fresh row with a real UUID.
+  const tmpId =
+    "tmp_" +
+    (typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2));
+  return {
+    id: tmpId,
+    quote_id: quoteId,
+    line_item_id: null,
+    line_item_name_snapshot: "",
+    category: "universal" as ItemCategory,
+    unit: "each" as LineItemUnit,
+    quantity: 1,
+    unit_price_snapshot: 0,
+    line_total: 0,
+    notes: "",
+  };
+}
+
+function toReplacement(it: QuoteLineItem): LineItemReplacement {
+  return {
+    id: it.id,
+    line_item_id: it.line_item_id,
+    line_item_name_snapshot: it.line_item_name_snapshot,
+    category: it.category,
+    unit: it.unit,
+    quantity: it.quantity,
+    unit_price_snapshot: it.unit_price_snapshot,
+    notes: it.notes ?? "",
+  };
+}
 
 export function LineItemsTable({
   quoteId,
@@ -62,28 +99,39 @@ export function LineItemsTable({
     }));
   }, [items]);
 
-  const onCommit = (id: string, patch: Omit<UpdateLineItemPayload, "id">) => {
-    // Optimistic local update
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        const quantity = patch.quantity ?? it.quantity;
-        const unit_price = patch.unit_price_snapshot ?? it.unit_price_snapshot;
-        return {
-          ...it,
-          quantity,
-          unit_price_snapshot: unit_price,
-          line_total: Math.round(quantity * unit_price * 100) / 100,
-          notes: patch.notes ?? it.notes,
-        };
-      })
-    );
+  const persist = (next: QuoteLineItem[]) => {
+    setItems(next);
     setError(null);
+    // Skip the round-trip if a row has no name — that's a half-edited new
+    // row; the server's zod schema doesn't reject empty strings, but it'd
+    // pollute the table. Wait until the user types a name.
+    if (next.some((li) => li.line_item_name_snapshot.trim() === "")) return;
     startTransition(async () => {
-      const res = await updateLineItemsAction(quoteId, [{ id, ...patch }]);
+      const res = await saveLineItemsAction(quoteId, next.map(toReplacement));
       if (!res.ok) setError(res.error);
     });
   };
+
+  const onCommit = (id: string, patch: Partial<QuoteLineItem>) => {
+    const next = items.map((it) => {
+      if (it.id !== id) return it;
+      const merged = { ...it, ...patch };
+      merged.line_total =
+        Math.round(merged.quantity * merged.unit_price_snapshot * 100) / 100;
+      return merged;
+    });
+    persist(next);
+  };
+
+  const onDelete = (id: string) => {
+    persist(items.filter((it) => it.id !== id));
+  };
+
+  const onAdd = () => {
+    persist([...items, makeBlankItem(quoteId)]);
+  };
+
+  const hasUnsavedNew = items.some((li) => li.line_item_name_snapshot.trim() === "");
 
   return (
     <div className="space-y-4">
@@ -93,16 +141,17 @@ export function LineItemsTable({
             <tr className="bg-adobe text-saguaro-black">
               <Th className="text-left">Item</Th>
               <Th className="text-right w-24">Qty</Th>
-              <Th className="text-left w-20 hidden sm:table-cell">Unit</Th>
+              <Th className="text-left w-24 hidden sm:table-cell">Unit</Th>
               <Th className="text-right w-32">Unit price</Th>
               <Th className="text-right w-32">Line total</Th>
+              {!readOnly && <Th className="w-10" aria-label="Actions" />}
             </tr>
           </thead>
           <tbody>
             {grouped.map((g) => (
               <FragmentBlock key={g.category}>
                 <tr className="bg-caliche-white border-t-2 border-sandstone/40">
-                  <td colSpan={5} className="px-4 pt-4 pb-2">
+                  <td colSpan={readOnly ? 5 : 6} className="px-4 pt-4 pb-2">
                     <span className="font-serif text-base text-saguaro-black">
                       {titleCase(g.category)}
                     </span>
@@ -114,9 +163,13 @@ export function LineItemsTable({
                 {g.rows.map((row, idx) => (
                   <tr key={row.id} className={idx % 2 === 0 ? "bg-caliche-white" : "bg-adobe/40"}>
                     <Td>
-                      <div className="font-medium text-saguaro-black">
-                        {row.line_item_name_snapshot}
-                      </div>
+                      <TextCell
+                        value={row.line_item_name_snapshot}
+                        readOnly={readOnly}
+                        placeholder="Description (e.g. Custom decorative coping)"
+                        onCommit={(v) => onCommit(row.id, { line_item_name_snapshot: v })}
+                        ariaLabel={`Description for line item`}
+                      />
                       {row.notes ? (
                         <div className="text-xs text-stone-gray mt-0.5">{row.notes}</div>
                       ) : null}
@@ -127,11 +180,26 @@ export function LineItemsTable({
                         readOnly={readOnly}
                         step={row.unit === "each" || row.unit === "zone" ? 1 : 0.5}
                         onCommit={(v) => onCommit(row.id, { quantity: v })}
-                        aria-label={`Quantity for ${row.line_item_name_snapshot}`}
+                        aria-label={`Quantity for ${row.line_item_name_snapshot || "line item"}`}
                       />
                     </Td>
                     <Td className="text-stone-gray text-xs hidden sm:table-cell">
-                      {UNIT_LABEL[row.unit]}
+                      {readOnly ? (
+                        UNIT_LABEL[row.unit]
+                      ) : (
+                        <select
+                          value={row.unit}
+                          onChange={(e) => onCommit(row.id, { unit: e.target.value as LineItemUnit })}
+                          className="text-xs bg-transparent border-0 text-stone-gray hover:text-saguaro-black focus:outline-none focus:text-saguaro-black cursor-pointer"
+                          aria-label={`Unit for ${row.line_item_name_snapshot || "line item"}`}
+                        >
+                          {UNIT_OPTIONS.map((u) => (
+                            <option key={u} value={u}>
+                              {UNIT_LABEL[u]}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </Td>
                     <Td className="text-right">
                       <NumberCell
@@ -140,28 +208,63 @@ export function LineItemsTable({
                         step={1}
                         money
                         onCommit={(v) => onCommit(row.id, { unit_price_snapshot: v })}
-                        aria-label={`Unit price for ${row.line_item_name_snapshot}`}
+                        aria-label={`Unit price for ${row.line_item_name_snapshot || "line item"}`}
                       />
                     </Td>
                     <Td className="text-right tnum font-medium text-saguaro-black">
                       {formatCurrency(row.line_total)}
                     </Td>
+                    {!readOnly && (
+                      <Td className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => onDelete(row.id)}
+                          className="text-stone-gray hover:text-error-brick text-lg leading-none px-1 py-0.5 rounded hover:bg-error-brick/10 transition-colors"
+                          title="Remove this line item"
+                          aria-label={`Remove ${row.line_item_name_snapshot || "line item"}`}
+                        >
+                          ×
+                        </button>
+                      </Td>
+                    )}
                   </tr>
                 ))}
                 <tr className="bg-adobe/30">
-                  <td colSpan={4} className="px-4 py-2 text-right text-xs text-stone-gray">
+                  <td
+                    colSpan={readOnly ? 4 : 5}
+                    className="px-4 py-2 text-right text-xs text-stone-gray"
+                  >
                     Subtotal — {titleCase(g.category)}
                   </td>
                   <td className="px-4 py-2 text-right tnum text-sm text-saguaro-black border-b border-adobe">
                     {formatCurrency(g.subtotal)}
                   </td>
+                  {!readOnly && <td className="border-b border-adobe" />}
                 </tr>
               </FragmentBlock>
             ))}
+            {!readOnly && (
+              <tr>
+                <td colSpan={6} className="px-4 pt-3 pb-2">
+                  <button
+                    type="button"
+                    onClick={onAdd}
+                    className="text-sm text-mojave-green hover:text-saguaro-black inline-flex items-center gap-2 px-3 py-1.5 border border-dashed border-mojave-green/40 hover:border-mojave-green rounded-md transition-colors"
+                  >
+                    <span className="text-base leading-none">+</span> Add line item
+                  </button>
+                  {hasUnsavedNew && (
+                    <span className="ml-3 text-xs text-stone-gray italic">
+                      New row needs a description before it saves.
+                    </span>
+                  )}
+                </td>
+              </tr>
+            )}
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={4} className="px-4 pt-5 pb-3 text-right">
+              <td colSpan={readOnly ? 4 : 5} className="px-4 pt-5 pb-3 text-right">
                 <span className="font-serif text-xl text-saguaro-black">Project total</span>
               </td>
               <td className="px-4 pt-5 pb-3 text-right">
@@ -169,10 +272,11 @@ export function LineItemsTable({
                   {formatCurrencyWhole(total)}
                 </span>
               </td>
+              {!readOnly && <td />}
             </tr>
             {total > 30000 ? (
               <tr>
-                <td colSpan={5} className="px-4 pb-2">
+                <td colSpan={readOnly ? 5 : 6} className="px-4 pb-2">
                   <div className="flex items-center justify-end gap-2 text-xs text-sunset-terracotta">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-sunset-terracotta" aria-hidden />
                     Over $30K threshold — Carlos render brief recommended
@@ -198,7 +302,7 @@ export function LineItemsTable({
   );
 }
 
-// Tiny inline-edit number cell ---------------------------------------------
+// Inline-edit cells -------------------------------------------------------
 
 function NumberCell({
   value,
@@ -238,17 +342,6 @@ function NumberCell({
         aria-label={rest["aria-label"]}
       >
         {money ? formatCurrency(value) : formatCount(value)}
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.2"
-          className="opacity-0 group-hover:opacity-50 transition-opacity"
-        >
-          <path d="M7 1.5 L8.5 3 L3 8.5 L1 9 L1.5 7 Z" />
-        </svg>
       </button>
     );
   }
@@ -282,14 +375,78 @@ function NumberCell({
   );
 }
 
+function TextCell({
+  value,
+  readOnly,
+  placeholder,
+  onCommit,
+  ariaLabel,
+}: {
+  value: string;
+  readOnly: boolean;
+  placeholder?: string;
+  onCommit: (v: string) => void;
+  ariaLabel?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  if (readOnly) {
+    return <span className="font-medium text-saguaro-black">{value || "—"}</span>;
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="text-left font-medium text-saguaro-black hover:bg-mojave-green/5 rounded px-1.5 py-0.5 -mx-1.5 -my-0.5 w-full"
+        onClick={() => {
+          setDraft(value);
+          setEditing(true);
+        }}
+        aria-label={ariaLabel}
+      >
+        {value || (
+          <span className="text-stone-gray italic font-normal">{placeholder ?? "Click to edit"}</span>
+        )}
+      </button>
+    );
+  }
+
+  const commit = () => {
+    setEditing(false);
+    if (draft !== value) onCommit(draft.trim());
+  };
+
+  return (
+    <input
+      autoFocus
+      type="text"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+        if (e.key === "Escape") {
+          setDraft(value);
+          setEditing(false);
+        }
+      }}
+      placeholder={placeholder}
+      className="w-full bg-caliche-white border border-mojave-green rounded px-1.5 py-0.5 text-sm text-saguaro-black focus:outline-none focus:ring-2 focus:ring-mojave-green/30"
+      aria-label={ariaLabel}
+    />
+  );
+}
+
 function formatCount(v: number): string {
   if (Number.isInteger(v)) return v.toString();
   return v.toFixed(2).replace(/\.?0+$/, "");
 }
 
-function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Th({ children, className = "", ...rest }: { children?: React.ReactNode; className?: string; "aria-label"?: string }) {
   return (
-    <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${className}`}>
+    <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${className}`} {...rest}>
       {children}
     </th>
   );

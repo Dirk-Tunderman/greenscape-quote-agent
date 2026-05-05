@@ -134,8 +134,12 @@ export async function runDraft(body: DraftRequestBody): Promise<DraftResult> {
     const matchResult = await matchPricing({ scope_items }, audit);
 
     // Verify catalog IDs are real (defensive — match_pricing should never invent, but the
-    // brief explicitly rewards guardrails on AI output)
-    const ids = matchResult.priced_items.map((p) => p.line_item_id);
+    // brief explicitly rewards guardrails on AI output). Agent-emitted rows always
+    // have a line_item_id; the null-filter is a type guard for the shared interface
+    // which now allows null for user-added custom rows.
+    const ids = matchResult.priced_items
+      .map((p) => p.line_item_id)
+      .filter((id): id is string => id !== null);
     const missing = await verifyCatalogIds(ids);
     if (missing.length > 0) {
       throw new Error(

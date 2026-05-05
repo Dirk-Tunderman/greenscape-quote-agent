@@ -6,40 +6,41 @@
  * discriminated union so the caller can render error state without
  * try/catch.
  *
- * approveAndDownloadAction is special — it returns the signed PDF URL so
- * the client can window.open() the download. Email send is deprecated;
- * see lib/email.ts for the dormant Resend code.
+ * approveAndDownloadAction returns the signed PDF URL so the client can
+ * window.open() the download. PDF generation is re-runnable — Marcus can
+ * call this after any edit to regenerate the PDF.
+ *
+ * Email send is dormant — see lib/email.ts.
  */
 "use server";
 
 import { revalidatePath } from "next/cache";
 import {
   patchQuote,
+  replaceLineItems,
   downloadPdf,
   setOutcome,
-  type PatchLineItemInput,
+  type ReplacementLineItem,
 } from "@/data/store";
 
-export interface UpdateLineItemPayload {
-  id: string;
-  quantity?: number;
-  unit_price_snapshot?: number;
-  notes?: string;
-}
+export type LineItemReplacement = ReplacementLineItem;
 
-export async function updateLineItemsAction(
+/**
+ * Replace the full line-items list in one shot. Backend does drop+insert
+ * and recomputes the quote total. The client always sends the full list
+ * so adds, deletes, and edits all round-trip through the same path.
+ */
+export async function saveLineItemsAction(
   quoteId: string,
-  patches: UpdateLineItemPayload[]
+  items: LineItemReplacement[]
 ): Promise<{ ok: true; total: number } | { ok: false; error: string }> {
   try {
-    const { total } = await patchQuote(quoteId, {
-      line_items: patches as PatchLineItemInput[],
-    });
+    const { total } = await replaceLineItems(quoteId, items);
     revalidatePath(`/quotes/${quoteId}`);
     revalidatePath("/quotes");
     return { ok: true, total };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Update failed" };
+    return { ok: false, error: err instanceof Error ? err.message : "Save failed" };
   }
 }
 

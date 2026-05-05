@@ -1,22 +1,25 @@
 /**
  * POST /api/quotes/[id]/send — render PDF, upload to Storage, return signed URL.
  *
- * Email send is intentionally OFF in this iteration (see prompts/chat-a-v2-wireup.md
- * Task A2). The route name is kept for backwards-compat; the work it does
- * is now "finalize → store → return signed URL". The frontend opens that
- * URL in a new tab so Marcus can review/save/forward the PDF himself.
+ * Email send is intentionally OFF in this iteration. The route renders +
+ * stores + returns a signed URL; the frontend opens that URL in a new tab
+ * so Marcus can save or forward the PDF himself. lib/email.ts is retained
+ * as dormant working code (Phase 2 candidate).
  *
- * The Resend wrapper at lib/email.ts is kept in the repo (working code,
- * deferred to Phase 2) but no live route invokes it.
+ * **Re-runnable.** PDF generation is no longer terminal. Marcus can edit
+ * line items, sections, or anything else and re-call this endpoint to
+ * regenerate the PDF. The status guard blocks only:
+ *   - `drafting` / `sending` — orchestrator or render in flight
+ *   - `accepted` / `rejected` / `lost` — outcome locked, customer signed
  *
  * Pipeline:
- *   1. Status guard — only `draft_ready` or `validation_failed` advance
- *      (sent → 409). `sending` is the in-flight lock.
+ *   1. Status guard (above)
  *   2. Render branded PDF from line_items + customer (lib/pdf/template.tsx)
  *   3. Upload to Supabase Storage (greenscape-quotes bucket, upsert)
  *   4. Get a 30-day signed URL
- *   5. Update quote: status=sent, pdf_url, sent_at (we keep the `sent`
- *      enum; semantically it now means "finalized & ready to download")
+ *   5. Update quote: status=sent, pdf_url, sent_at. The `sent` enum is
+ *      decorative — "PDF has been generated at least once" — and does
+ *      NOT lock further edits or further finalizes.
  *
  * Failure paths revert status to its pre-render value.
  *
@@ -46,15 +49,21 @@ export async function POST(_req: Request, ctx: ParamCtx) {
 
   const q = quote as Quote;
 
-  if (q.status === "sent") {
-    return NextResponse.json({ error: "Quote already finalized" }, { status: 409 });
-  }
-  if (q.status !== "draft_ready" && q.status !== "validation_failed") {
+  if (q.status === "drafting" || q.status === "sending") {
     return NextResponse.json(
-      { error: `Quote not ready to finalize (status=${q.status}). Only draft_ready or validation_failed quotes can be finalized.` },
+      { error: `Quote is currently ${q.status} — wait for it to settle before generating a PDF.` },
       { status: 409 },
     );
   }
+  if (q.status === "accepted" || q.status === "rejected" || q.status === "lost") {
+    return NextResponse.json(
+      { error: `Quote is locked (status=${q.status}). Outcome was recorded; PDFs can no longer be regenerated.` },
+      { status: 409 },
+    );
+  }
+  // Otherwise (draft_ready, validation_failed, sent) — proceed with render.
+  // `sent` is intentionally allowed: PDF generation is not terminal.
+  const previousStatus = q.status;
 
   const [{ data: customer }, { data: lines }] = await Promise.all([
     supabase.from("customers").select("*").eq("id", q.customer_id).single(),
@@ -72,7 +81,7 @@ export async function POST(_req: Request, ctx: ParamCtx) {
   try {
     pdfBuffer = await renderProposalPdf({ customer: c, quote: q, line_items: lineItems });
   } catch (err) {
-    await supabase.from("quotes").update({ status: q.status }).eq("id", id);
+    await supabase.from("quotes").update({ status: previousStatus }).eq("id", id);
     return NextResponse.json(
       { error: "PDF render failed", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 },
@@ -95,7 +104,7 @@ export async function POST(_req: Request, ctx: ParamCtx) {
     upsert: true,
   });
   if (upload.error) {
-    await supabase.from("quotes").update({ status: q.status }).eq("id", id);
+    await supabase.from("quotes").update({ status: previousStatus }).eq("id", id);
     return NextResponse.json(
       { error: "PDF upload failed", detail: upload.error.message },
       { status: 500 },
