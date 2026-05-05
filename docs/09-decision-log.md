@@ -216,3 +216,69 @@ This covers the bulk of Marcus's $8K-$120K project range. **This is potentially 
 **Why:** Research (Q13) — in design-build, major material/color commitments are deferred to a design-development phase post-walk. Site walk produces *direction* (e.g., "travertine over concrete"), not SKU-level commitment.
 
 **Updated `generate_proposal` voice spec:** Material descriptions stay at category/grade level (e.g., "premium travertine pavers, French pattern"), not SKU-locked. Avoids the trap of the AI committing the customer to a specific product before design is finalized.
+
+---
+
+## v2 wire-up + UX iteration (2026-05-05, post-deploy)
+
+These decisions came after the initial mock-backed deploy went live and the user exercised the actual end-to-end flow in a browser. They tighten the product around one principle: **Marcus retains full control after the agent runs**. The agent is right ~90% of the time; the UI must let him correct the other 10% without friction.
+
+### D31 · Frontend wired to real API; mocks removed from live path
+
+**Why:** Initial frontend (`data/store.ts`) read from in-memory mocks while Chat A's backend was being built. The two were verified independently (curl tests on the API; visual tests on the UI), but the user-facing surface was a façade — clicking through never hit the real agent. Exactly the brief's failure mode: *"Shipping something that demos but breaks if you click outside the happy path."*
+
+**What we did:** every function in `data/store.ts` swapped from mock-state mutation to a real `fetch()` against the matching `/api/*` endpoint. Server-side fetch uses a loopback URL (`http://127.0.0.1:${PORT}`) so server actions and server components can both reach the API in the same Node.js process without DNS round-trips through Caddy.
+
+**Considered:** Calling Supabase directly from server actions (skip the API hop). Rejected: the agent orchestrator + audit log + storage layering all live behind the API. Going around it would duplicate logic.
+
+**Same commit:** the "budget signal" form field on `/quotes/new` was removed. It was UI-only and never piped into agent reasoning, so collecting it suggested a fidelity that didn't exist.
+
+### D32 · Customer-facing email step removed; PDF download is the export
+
+**Why:** The original `POST /api/quotes/[id]/send` rendered a branded PDF and emailed the customer via Resend in one step. After demo review, this conflated two things — *generating an artifact* (Marcus's tool) with *sending a customer-facing communication* (a sales action that should stay in Marcus's hands). Marcus is the one with the relationship; the system shouldn't auto-deliver to his customer.
+
+**What we did:** `POST /send` still renders the PDF and uploads to Supabase Storage, but skips Resend entirely. The frontend opens the signed URL in a new tab so Marcus can review, download, forward, or attach to whatever channel he prefers. `lib/email.ts` is retained as dormant working code — the wire-up is one-line away when an outbound email step is wanted in Phase 2.
+
+**Considered:** Removing the Resend code entirely. Rejected: the wrapper is solid, and keeping it preserves the option for future workflows (e.g., a "Send draft to internal team" step before customer delivery).
+
+### D33 · PDF generation is non-terminal; only outcome states lock editing
+
+**Why:** First version locked all editing the moment a PDF was generated (status moved to `sent` and `readOnly` flipped). The user surfaced the right objection: *"the agent will not get it 100%. So the user should always be able to have the control to modify things."* The whole point of human-in-the-loop is that PDF export is *iteration*, not commitment.
+
+**What we did:** `readOnly` now flips only on outcome states (`accepted | rejected | lost`), which represent customer-side decisions that genuinely lock the deal. PDF generation is re-runnable from `sent`; the `/send` route guard blocks only `drafting`/`sending` (in-flight) and the three outcome states. The "Approve & download PDF" button relabels to "Re-generate PDF" on subsequent presses; the StatusBadge label moved from "Finalized" to "PDF Ready" to reflect non-terminal semantics.
+
+**DB enum unchanged.** The `quote_status` enum still has `sent`; we only relabeled the UI. The DB stays a thin spec; semantic shifts live in the rendering layer where they're cheap to revisit.
+
+### D34 · Section-by-section editable proposal with single-source pricing
+
+**Why:** The proposal markdown started life as one big blob with two tabs (Preview / Edit-markdown). Marcus is a contractor, not a markdown user. Worse: the markdown contained a duplicate copy of the line items table and a duplicate copy of payment-schedule percentages — both pre-computed by the agent at generation time and *not* re-derived after Marcus edited line items. So the on-screen review showed a stale Project Total that disagreed with the live line items panel.
+
+**What we did:**
+- The markdown is parsed into sections by `## ` H2 headers; each section gets its own labeled, editable card. Storage stays as a single `proposal_markdown` column (no schema change), with parse-on-read / recombine-on-save semantics.
+- **Section 3 ("Detailed Scope & Pricing")** is auto-derived. The card renders a non-editable preview generated from the current `line_items` + total at render time AND at save time. Marcus edits items in the line-items panel above; this section follows.
+- **Section 7 ("Terms & Next Steps")** is split. The payment-schedule block at the top is auto-generated from current total × `payment_schedule` percentages. The rest of the section (other terms, closing paragraph) stays freely editable.
+- All other sections are full-text editable as plain textareas.
+
+**Considered:** Storing sections as a `jsonb` column with separate fields. Rejected: schema change, bigger blast radius, unclear ROI for a take-home — the parse/recombine pattern handles the same use case without migration.
+
+**Single-source consequence:** the PDF (`lib/pdf/template.tsx`) was already rendering directly from `line_items` + `payment_schedule` (not parsing markdown). So the on-screen review now matches what the PDF will render. The `proposal_markdown` column is best understood as a denormalized snapshot updated by the editor — a viewing surface, not a source of truth.
+
+### D35 · Manual line items + per-row category & unit selectors
+
+**Why:** The agent emits a structured scope and prices it from the catalog, but two failure modes arise: (1) the agent misses something the customer mentioned ("custom decorative coping"), or (2) the agent's category assignment doesn't match Marcus's mental model (e.g., a fire-pit-adjacent item lands in Universal). Both need a human override path.
+
+**What we did:**
+- "+ Add line item" button below the table inserts an editable row (default: Universal / each / qty 1 / price 0). New rows wait for a non-empty description before they round-trip.
+- Per-row delete (× button), inline-editable description, inline unit selector, inline category selector (small uppercase chip under the description). Existing inline qty + unit price editors retained.
+- Save semantics changed to **full-list-replace**: every change (cell edit, add, delete, regroup) sends the entire items array to `PATCH /api/quotes/[id]`; backend drops + inserts and recomputes total. Removes diffing logic; the client only needs the current state.
+- Custom rows have `line_item_id = NULL` (no catalog FK). `lib/types.ts` `QuoteLineItem.line_item_id` was relaxed from `string` to `string | null` to match. The orchestrator's catalog-id verification was tightened to filter null IDs (agent-emitted rows always have a catalog FK; manual rows are exempt by definition).
+
+**Categories drive both the on-screen group sections and the PDF section ordering + per-category subtotals**, so forcing every manual add into Universal split logical groups across the proposal. The selector keeps the line items table coherent.
+
+### D36 · Customer fields editable inline via dedicated PATCH endpoint
+
+**Why:** The Customer card was read-only display. Marcus needs to fix typos in name, email, address, phone — without having to redo a whole quote. Same human-in-the-loop principle as line items.
+
+**What we did:** New `PATCH /api/customers/[id]` route. New `CustomerCard` client component with click-to-edit fields (name, email, phone, address). Optimistic UI; server error reverts the field to last-committed.
+
+**Considered:** Extending `PATCH /api/quotes/[id]` to accept customer fields. Rejected: the customer record is shared across quotes (a single Marcus customer can have multiple quotes over time), so editing customer fields belongs at the customer resource, not nested under one of their quotes.

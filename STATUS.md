@@ -6,14 +6,14 @@
 
 ## Last updated
 
-`2026-05-05` · Chat A v2 (WIRE-UP COMPLETE — frontend now reads from real DB, not mocks · email send removed · section-by-section editable proposal · DB list cleaned + 2 new real seeds)
-Next update: after final code-review subagent → Loom
+`2026-05-05` · v2 UX iteration complete (post-wire-up: PDF generation non-terminal · single-source pricing in proposal · manual line items + per-row category + delete · inline-editable customer card · documentation refresh)
+Next update: pre-Loom code-review pass (if desired) → submission
 
 ---
 
 ## Current overall phase
 
-**v2 wire-up complete.** Public URL `https://quote-agent.tunderman.cc` is now serving the *actual* product end-to-end — UI reads from DB, agent triggers from form submit, line-item edits + section edits persist, "Approve & download PDF" replaces customer email.
+**v2 UX iteration complete.** Public URL `https://quote-agent.tunderman.cc` is the demo-ready product. Marcus retains full control after the agent runs — every surface that can be wrong (line items, customer fields, proposal sections, PDF) is editable, re-runnable, or auto-derived from a single source of truth. See `docs/09-decision-log.md` D31–D36 for the post-deploy decisions and `LEARNING.md` for the gotchas.
 
 **Live list (5 quotes):**
 - Linda Whitaker — $26,107 · finalized · 0.154 cost
@@ -158,7 +158,12 @@ Phase progression (from `docs/05-build-plan.md`):
 
 | Date | Chat | Item |
 |---|---|---|
-| 2026-05-05 | Chat A v2 | **WIRE-UP COMPLETE.** `data/store.ts` now calls real `/api/*` endpoints (mocks removed from live path). `/quotes` list shows DB rows; `/quotes/new` triggers the real agent; line-item + section edits persist; "Approve & download PDF" replaces email send (Resend deferred to Phase 2). Section-by-section editable proposal (parse on read, recombine on save). Budget signal field deleted. DB cleaned (3 validation_failed rows removed); 2 new real seeds added (Anderson $3.5K, Whitaker $26K) + Patel marked accepted to vary list states. Section-edit + finalize → PDF download verified end-to-end. |
+| 2026-05-05 | Chat A v2 | **Documentation refresh.** Decision log D31–D36 added covering post-wire-up UX shifts. `docs/11-current-state.md` updated for live API surface, single-source pricing pattern, customer endpoint, status enum semantics. `LEARNING.md` populated (use-server gotcha, parse/recombine pattern, single-source pricing rule, drop+insert save model, schema-vs-label trade-off). |
+| 2026-05-05 | Chat A v2 | **Per-row category selector** on every line item. Inline dropdown chip under the description; changing the value moves the row to that category's group section and updates the per-category subtotal. The 9-value `ItemCategory` enum is fully exposed. |
+| 2026-05-05 | Chat A v2 | **Single-source pricing in proposal + editable customer card.** ProposalEditor's section 4 (Detailed Scope & Pricing) auto-derives from live `line_items` + total; section 8 payment-schedule block auto-derives from total × `payment_schedule`. Customer card (name, email, phone, address) inline-editable via new `PATCH /api/customers/[id]` endpoint. |
+| 2026-05-05 | Chat A v2 | **PDF generation no longer terminal + manual line items.** `/send` route is re-runnable from `sent`; `readOnly` flips only on outcome states. LineItemsTable refactored to full-list save model with per-row delete (×) button, "+ Add line item" button, inline description + unit + category editors. `lib/types.ts` `QuoteLineItem.line_item_id` relaxed to `string \| null` to support custom (no-catalog-FK) rows. Status badge "Finalized" → "PDF Ready"; banner copy + Approve button label adapted. |
+| 2026-05-05 | Chat A v2 | **Server-side exception fix on /quotes/new submit.** Next.js 15 strictly enforces `"use server"` files to export only async functions; `EMPTY_FORM_STATE` const moved to a sibling `form-state.ts` module. Latent pre-v2 bug exposed by first browser form submission. |
+| 2026-05-05 | Chat A v2 | **Wire-up complete.** `data/store.ts` calls real `/api/*` endpoints (mocks removed from live path). `/quotes` list shows DB rows; `/quotes/new` triggers the real agent; line-item + section edits persist; "Approve & download PDF" replaces email send (Resend deferred to Phase 2). Section-by-section editable proposal (parse on read, recombine on save). Budget signal field deleted. DB cleaned (3 validation_failed rows removed); 2 new real seeds added (Anderson $3.5K, Whitaker $26K) + Patel marked accepted to vary list states. Section-edit + finalize → PDF download verified end-to-end. |
 | 2026-05-05 | Chat B | Documentation pass — wrote `docs/13-frontend-internals.md` (deep-dive frontend ref) + JSDoc headers on 10 key files. Frontend complete: 4 pages live on mocks, swap recipe documented, ready for API wire-in. |
 | 2026-05-05 | Chat A | **END-TO-END LIVE.** 2 integration tests on PROD passed (Patel $15,955 patio+irrigation, Chen $59,000 full backyard with `needs_render:true`). Real Anthropic Sonnet 4.5 + Haiku 4.5 chains, real Supabase DB + Storage, real Resend email send w/ branded PDF attached. Validate-on-fail retry loop verified. Total dev+test Anthropic spend ≈ $0.50. |
 | 2026-05-05 | Chat A | Aligned code with research D26-D30: migration 003 (item_type / payment_schedule / ROC / insurance), 9-section template w/ Exclusions + Warranty + License Block, ROC + payment-schedule-sum validators; build green; **ROC/insurance later stripped per user (kept columns for forward compat)** |

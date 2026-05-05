@@ -12,9 +12,9 @@ If something here disagrees with 00-10, **this doc wins** — and 00-10 should b
 
 - **Live URL:** https://quote-agent.tunderman.cc (Hetzner VPS, Caddy + LE cert + systemd)
 - **Repo:** https://github.com/Dirk-Tunderman/greenscape-quote-agent (private)
-- **Status:** Backend (Chat A) complete · Frontend (Chat B) 4 pages live · Deploy (Chat C) live with valid cert
-- **End-to-end verified:** 2 integration tests passed in production (Patel $15,955 patio+irrigation, Chen $59,000 full backyard with `needs_render: true`)
-- **Anthropic spend so far:** ~$0.50 across all dev + integration tests
+- **Status:** End-to-end live. Frontend reads from real DB (no mocks), agent triggers from form submit, line items + sections + customer fields all editable inline, PDF download replaces the email send (re-runnable from any non-outcome state).
+- **End-to-end verified:** Multiple agent runs in production across $3.5K–$59K range. Browser-driven flow confirmed: form → agent → edit line items / sections / customer → PDF download → re-edit → re-download.
+- **Anthropic spend so far:** ~$1 across all dev + integration tests
 
 ---
 
@@ -44,17 +44,31 @@ Marcus pastes notes  →  /quotes/new  →  POST /api/agent/draft
                                               │
                                               ▼
 Marcus reviews + edits  →  /quotes/[id]  →  PATCH /api/quotes/[id]
+                                              │      (full-list line items
+                                              │       drop+insert; total
+                                              │       recomputed server-side)
+                                              │
+                          PATCH /api/customers/[id]  ←  inline edits to
+                                                         name/email/phone/address
                                               │
                                               ▼
-Marcus approves         →  POST /api/quotes/[id]/send
+Marcus generates PDF    →  POST /api/quotes/[id]/send
                                               │
                                               ▼
                           ┌──────────────────────────────────────┐
                           │ Render PDF (lib/pdf/template.tsx)    │
                           │ Upload to Supabase Storage           │
-                          │ Email customer via Resend            │
-                          │ status → sent                        │
+                          │ Return signed URL (no email send)    │
+                          │ status → sent (= "PDF Ready",        │
+                          │           re-runnable, not terminal) │
                           └──────────────────────────────────────┘
+                                              │
+                                              ▼
+                          Marcus edits more  →  re-runs above as needed
+                                              │
+                                              ▼
+                          Outcome (accepted / rejected / lost)
+                          → readOnly = true (only state that locks editing)
 ```
 
 ---
@@ -65,8 +79,8 @@ Marcus approves         →  POST /api/quotes/[id]/send
 |---|---|---|
 | `customers` | 5 demo + N created | name + email + phone + address |
 | `line_items` | 58 (56 fixed + 2 allowance) | priced catalog Marcus quotes against |
-| `quotes` | 2 from integration tests | one row per draft/sent proposal |
-| `quote_line_items` | per-quote rows | priced items snapshotted onto a quote |
+| `quotes` | 5+ live | one row per draft/sent proposal |
+| `quote_line_items` | per-quote rows | priced items snapshotted onto a quote (`line_item_id` is **nullable** — manually-added custom rows have no catalog FK) |
 | `quote_artifacts` | per-quote rows | scope, ambiguities, validation_result, priced_items as jsonb |
 | `audit_log` | one row per LLM call | model + tokens + cost + duration + success |
 
@@ -107,17 +121,18 @@ The chain is **deterministic + sequential** with **one corrective re-prompt** of
 ### Proposal structure (8 sections)
 
 1. `# Proposal`
-2. `## {Customer Name} · {Address}`
-3. Greeting paragraph (must reference site walk by date + 1-2 specific observations)
-4. `## Project Overview`
-5. `## Detailed Scope & Pricing` (table with allowance items flagged) + `**Project Total: $X**`
-6. `## Exclusions`
-7. `## Timeline`
-8. `## Warranty`
-9. `## Terms & Next Steps` (per-quote payment schedule, default 30/30/30/10)
-10. `## Signature`
+2. `## {Customer Name} · {Address}` — H2 doubles as greeting container
+3. `## Project Overview`
+4. `## Detailed Scope & Pricing` (table with allowance items flagged) + `**Project Total: $X**`
+5. `## Exclusions`
+6. `## Timeline`
+7. `## Warranty`
+8. `## Terms & Next Steps` (per-quote payment schedule, default 30/30/30/10)
+9. `## Signature`
 
 (Cover-page metadata — proposal #, date — lives in the PDF template, not in the markdown.)
+
+**Single-source pricing (D34).** The proposal_markdown column is a snapshot, not a source of truth. The on-screen editor (`app/quotes/[id]/ProposalEditor.tsx`) re-derives section 4 (Detailed Scope & Pricing) from the live `line_items` and section 8's payment-schedule block from `total × payment_schedule` at render time AND at save time. Marcus edits items in the line-items panel; the proposal's pricing surfaces follow automatically. Other sections (Greeting, Project Overview, Exclusions, Timeline, Warranty, the rest of Terms, Signature) stay freely editable text. The PDF (`lib/pdf/template.tsx`) renders from `line_items` + `payment_schedule` directly, so it is the same source of truth.
 
 ---
 
@@ -125,18 +140,19 @@ The chain is **deterministic + sequential** with **one corrective re-prompt** of
 
 All routes run on Node.js (`runtime = "nodejs"`). All consume/return JSON.
 
-| Method | Path | Owns | Purpose | maxDuration |
-|---|---|---|---|---|
-| POST | `/api/agent/draft` | Chat A | run orchestrator → return draft_id + status + cost | 240s |
-| GET | `/api/quotes` | Chat A | list `QuoteSummary[]` with optional `?status=` filter | 30s default |
-| GET | `/api/quotes/[id]` | Chat A | full `QuoteDetail` (joins customer + line_items + artifacts + audit_log) | 30s default |
-| PATCH | `/api/quotes/[id]` | Chat A | edit line items / proposal / outcome / status (auto-recompute total) | 30s default |
-| POST | `/api/quotes/[id]/send` | Chat A | render PDF → upload to Storage → email via Resend → mark sent | 60s |
-| GET | `/api/line-items` | Chat A | catalog read (ordered by category, unit_price) | 30s default |
+| Method | Path | Purpose | maxDuration |
+|---|---|---|---|
+| POST | `/api/agent/draft` | run orchestrator → return draft_id + status + cost | 240s |
+| GET | `/api/quotes` | list `QuoteSummary[]` with optional `?status=` filter | 30s default |
+| GET | `/api/quotes/[id]` | full `QuoteDetail` (joins customer + line_items + artifacts + audit_log) | 30s default |
+| PATCH | `/api/quotes/[id]` | edit line items (full-list drop+insert) / proposal_markdown / outcome / status — auto-recomputes total | 30s default |
+| POST | `/api/quotes/[id]/send` | render PDF → upload to Storage → return signed URL. **No email send.** Re-runnable from `draft_ready`/`validation_failed`/`sent`. | 60s |
+| PATCH | `/api/customers/[id]` | edit any subset of `{name, email, phone, address}` for the customer record | 30s default |
+| GET | `/api/line-items` | catalog read (ordered by category, unit_price) | 30s default |
 
 **Request/response shapes** are the TS types in `lib/types.ts` — that file is the API contract.
 
-The current frontend (`data/store.ts` per Chat B's commit) consumes these routes. Until the wire-up commit lands, Chat B reads from `data/mocks/` instead.
+`data/store.ts` is the single seam between frontend (server components, server actions) and these routes. Server-side fetch uses a loopback URL (`http://127.0.0.1:${PORT}`) to reach the API in the same Node.js process.
 
 ---
 
@@ -190,6 +206,7 @@ The systemd unit lives at `/etc/systemd/system/greenscape-quote-agent.service` (
 These were explicitly cut from the 24h MVP per `docs/00-project-brief.md`. Each maps to a Phase-2 swap path documented in `docs/06-assumptions.md`.
 
 - ❌ Voice memo input + transcription (Phase 2 — Deepgram)
+- ❌ Customer-facing email send on approval (Phase 2 — `lib/email.ts` Resend wrapper retained, no live route invokes it; D32)
 - ❌ GHL CRM push on approval (Phase 2 — needs GHL OAuth)
 - ❌ Stripe deposit invoice generation (Phase 2)
 - ❌ DocuSign signature flow (handled in GHL natively)
@@ -210,6 +227,8 @@ These were explicitly cut from the 24h MVP per `docs/00-project-brief.md`. Each 
 - **Match-pricing tool fallback** is full-category dump if fuzzy match returns 0 results — could be lossy on >10-item categories. None of our 8 categories has >10 items today.
 - **PDF doesn't paginate complex tables** beautifully — long line-item tables can break across pages awkwardly.
 - **Storage bucket is created on first send** — if `service_role` lacks `storage.create_bucket`, the first send fails. Currently works.
+- **Line item edits → proposal sections** sync after revalidate, not instantly. The ProposalEditor's section 4 + section 8 payment block re-derive when the page receives fresh props (post-save revalidatePath). During the optimistic UI window (~200–500ms after editing a line item) the proposal still shows the previous values. Acceptable for the demo; lifting state into a shared client wrapper would make sync instant.
+- **Manual line items use temp IDs locally** — `tmp_*` prefixed IDs in client state; the store strips non-UUID IDs before PATCH so the server treats them as fresh inserts. Server-assigned UUIDs come back on the next read.
 
 ---
 
@@ -223,13 +242,16 @@ These were explicitly cut from the 24h MVP per `docs/00-project-brief.md`. Each 
 | How does the LLM cost get tracked? | `lib/anthropic.ts` (`priceMessage`) + `lib/audit.ts` |
 | Why are there exactly 5 skills (not 1, not 10)? | `docs/09-decision-log.md` D15 |
 | Why use `greenscape` schema (not `public`)? | `docs/09-decision-log.md` D13 |
-| How does the proposal template look? | `lib/pdf/template.tsx` |
-| Frontend pages | `app/quotes/`, `app/admin/`, `components/` (Chat B owns) |
-| Frontend mock data | `data/mocks/` (Chat B owns) |
-| Frontend ↔ API wire-up | `data/store.ts` (Chat B owns) |
-| Hetzner systemd / Caddy | not in repo — `/etc/systemd/system/greenscape-quote-agent.service` and `/etc/caddy/` on Server 1 (Chat C owns) |
-| Server cleanup script | `scripts/teardown.sh` (Chat C owns) |
-| Deploy script | `scripts/deploy.sh` (Chat A owns) |
+| Why is editing not locked when a PDF is generated? | `docs/09-decision-log.md` D33 |
+| Why don't we email the customer ourselves? | `docs/09-decision-log.md` D32 |
+| Why is the proposal's "Detailed Scope & Pricing" section auto-derived? | `docs/09-decision-log.md` D34 |
+| How does the proposal template (PDF) look? | `lib/pdf/template.tsx` |
+| Frontend pages | `app/quotes/`, `app/admin/`, `components/` |
+| Frontend ↔ API wire-up | `data/store.ts` (the seam — every page/action goes through here) |
+| Inline-edit patterns | `app/quotes/[id]/LineItemsTable.tsx` (line items), `app/quotes/[id]/CustomerCard.tsx` (customer fields), `app/quotes/[id]/ProposalEditor.tsx` (proposal sections) |
+| Hetzner systemd / Caddy | not in repo — `/etc/systemd/system/greenscape-quote-agent.service` and `/etc/caddy/` on Server 1 |
+| Server cleanup script | `scripts/teardown.sh` |
+| Deploy script | `scripts/deploy.sh` |
 
 ---
 
@@ -252,13 +274,11 @@ To run integration tests against a clean DB:
 
 ---
 
-## Coordination conventions (across the 3 chats)
+## Coordination conventions (post-v2)
 
-- **STATUS.md** is the live coordination dashboard — every chat reads at start of session, Chat A is primary writer
-- **`docs/09-decision-log.md`** records *why* — don't undo decisions there without explicit user OK
-- **This doc (`11-current-state.md`)** is what *is* — the WHAT, not the WHY
-- **CLAUDE.md** (incoming, written by user) — durable instructions for future chats; not in scope for any one chat to write
-- **Chat ownership** (commit boundaries):
-  - Chat A: `lib/{anthropic,audit,db,skills,orchestrator,pdf,email}.ts`, `app/api/`, `supabase/`, `data/historical-proposals.json`, `scripts/deploy.sh`, root configs
-  - Chat B: `app/quotes/`, `app/admin/`, `app/layout.tsx`, `app/page.tsx`, `app/globals.css`, `components/`, `data/{mocks,store}.ts`, `lib/types.ts` (shared but Chat B is primary)
-  - Chat C: server-side at `/opt/`, `/etc/systemd/`, `/etc/caddy/`; `scripts/teardown.sh`
+The original 3-chat split (A backend / B frontend / C deploy) ran during the initial build. After the v2 wire-up the boundary is informal — touch what you need to touch — but the originating ownership is preserved in commit history if you need to trace why a specific piece looks the way it does.
+
+- **STATUS.md** is the live coordination dashboard — read at start of session.
+- **`docs/09-decision-log.md`** records *why*. Don't undo entries without explicit user OK.
+- **This doc (`11-current-state.md`)** is *what is* — the WHAT, not the WHY. Refresh on behavior or surface-area change, not on every commit.
+- **`LEARNING.md`** at repo root captures non-obvious gotchas worth keeping for future sessions.
