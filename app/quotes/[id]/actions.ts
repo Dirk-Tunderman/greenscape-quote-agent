@@ -20,6 +20,8 @@ import {
   replaceLineItems,
   downloadPdf,
   setOutcome,
+  updateCustomer,
+  type CustomerPatch,
   type ReplacementLineItem,
 } from "@/data/store";
 
@@ -82,5 +84,20 @@ export async function setOutcomeAction(
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Update failed" };
+  }
+}
+
+export async function updateCustomerAction(
+  quoteId: string,
+  customerId: string,
+  patch: CustomerPatch
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await updateCustomer(customerId, patch);
+    revalidatePath(`/quotes/${quoteId}`);
+    revalidatePath("/quotes");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Customer update failed" };
   }
 }

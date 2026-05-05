@@ -27,7 +27,7 @@ import { Card, CardBody, CardHeader } from "@/components/Card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
 import { getQuote } from "@/data/store";
-import { formatCurrency, formatCurrencyWhole, formatDate, formatDateTime, titleCase } from "@/lib/utils";
+import { formatCurrency, formatCurrencyWhole, formatDateTime, titleCase } from "@/lib/utils";
 import { AmbiguityList } from "./AmbiguityList";
 import { LineItemsTable } from "./LineItemsTable";
 import { ProposalEditor } from "./ProposalEditor";
@@ -35,6 +35,7 @@ import { ApproveBar } from "./ApproveBar";
 import { AuditLogModal } from "./AuditLogModal";
 import { ValidationPanel } from "./ValidationPanel";
 import { OutcomePanel } from "./OutcomePanel";
+import { CustomerCard } from "./CustomerCard";
 
 export const dynamic = "force-dynamic";
 
@@ -127,14 +128,18 @@ export default async function QuoteDetailPage({
       {/* Top grid: customer info + agent summary */}
       <div className="grid lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
-          <CardHeader title="Customer" />
-          <CardBody className="grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
-            <Detail label="Name" value={customer.name} />
-            <Detail label="Email" value={<a href={`mailto:${customer.email}`} className="text-mojave-green hover:underline underline-offset-4">{customer.email}</a>} />
-            <Detail label="Phone" value={customer.phone ?? "—"} />
-            <Detail label="Address" value={customer.address} />
-            <Detail label="Project type" value={quote.project_type} />
-            <Detail label="Created" value={formatDate(quote.created_at)} />
+          <CardHeader
+            title="Customer"
+            subtitle={readOnly ? undefined : "Click any field to edit."}
+          />
+          <CardBody>
+            <CustomerCard
+              quoteId={quote.id}
+              customer={customer}
+              projectType={quote.project_type}
+              createdAt={quote.created_at}
+              readOnly={readOnly}
+            />
           </CardBody>
         </Card>
 
@@ -268,6 +273,9 @@ export default async function QuoteDetailPage({
             quoteId={quote.id}
             initialMarkdown={quote.proposal_markdown}
             readOnly={readOnly}
+            lineItems={line_items}
+            total={Number(quote.total_amount)}
+            paymentSchedule={quote.payment_schedule}
           />
         </CardBody>
       </Card>

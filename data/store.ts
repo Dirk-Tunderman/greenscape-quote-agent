@@ -25,6 +25,7 @@
  */
 
 import type {
+  Customer,
   DraftRequestBody,
   ItemCategory,
   LineItem,
@@ -216,4 +217,22 @@ export async function setOutcome(
     method: "PATCH",
     body: JSON.stringify({ status: outcome, outcome_notes: notes }),
   });
+}
+
+export interface CustomerPatch {
+  name?: string;
+  email?: string;
+  phone?: string | null;
+  address?: string;
+}
+
+export async function updateCustomer(
+  customerId: string,
+  patch: CustomerPatch
+): Promise<Customer> {
+  const { customer } = await api<{ customer: Customer }>(
+    `/api/customers/${customerId}`,
+    { method: "PATCH", body: JSON.stringify(patch) }
+  );
+  return customer;
 }
