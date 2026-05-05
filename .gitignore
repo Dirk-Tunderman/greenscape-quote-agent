@@ -1,6 +1,9 @@
 # Source materials from L&S — keep private, not for public repo
 assignment-docs/
 
+# Personal Loom prep — not for submission
+LOOM-PREP.md
+
 # Environment + secrets
 .env
 .env.local
