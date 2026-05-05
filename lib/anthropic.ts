@@ -1,7 +1,26 @@
+/**
+ * Single Anthropic SDK wrapper for the entire backend.
+ *
+ * Why a wrapper:
+ * - One place to set the per-call timeout (60s — bumped from 30s after the
+ *   Chen integration test on production)
+ * - One place that prices a `Message.usage` into a USD cost so cost-tracking
+ *   can never drift between skills
+ * - One place to swap models (cost-aware split per docs/09-decision-log.md D14:
+ *   Sonnet for quality-critical tasks, Haiku for classification/validation)
+ *
+ * Pricing (per million tokens) is hard-coded in PRICE_PER_MTOK. Update there
+ * when Anthropic pricing changes.
+ *
+ * `parseJsonFromText` is a defensive parser for LLM output that may include
+ * markdown code fences or trailing prose around the JSON. It finds the first
+ * top-level { or [ and balances brackets to its match.
+ */
+
 import Anthropic from "@anthropic-ai/sdk";
 
 // Per system info: Claude 4.X is the current family.
-// Sonnet 4.6 for quality (extract / match / generate); Haiku 4.5 for cheap classification (flag / validate).
+// Sonnet 4.5 for quality (extract / match / generate); Haiku 4.5 for cheap classification (flag / validate).
 export const MODELS = {
   sonnet: "claude-sonnet-4-5-20250929",
   haiku: "claude-haiku-4-5-20251001",

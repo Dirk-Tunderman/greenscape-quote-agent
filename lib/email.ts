@@ -1,3 +1,16 @@
+/**
+ * Resend client + transactional send for proposal emails.
+ *
+ * From: `RESEND_FROM_EMAIL` (verified domain notifications.tunderman.io).
+ * Subject: "Your Greenscape Pro proposal — {proposalNumber}"
+ * Body: short plain-text in Marcus's voice (no HTML — keeps deliverability simple)
+ * Attachment: the rendered PDF buffer
+ *
+ * Errors propagate to the calling route (POST /api/quotes/[id]/send), which
+ * reverts quote.status to its pre-send value. Resend errors typically
+ * indicate verified-domain or rate-limit issues.
+ */
+
 import { Resend } from "resend";
 
 let cached: Resend | null = null;

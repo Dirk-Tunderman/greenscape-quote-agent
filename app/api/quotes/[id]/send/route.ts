@@ -1,3 +1,24 @@
+/**
+ * POST /api/quotes/[id]/send — render PDF, upload, email, mark sent.
+ *
+ * Pipeline:
+ *   1. Validate quote is in `draft_ready` or `validation_failed` status
+ *      (sent quotes 409; drafting/sending also 409 — wrong state)
+ *   2. Set status='sending' (lock against double-send)
+ *   3. Render branded PDF from line_items + customer (lib/pdf/template.tsx)
+ *   4. Ensure greenscape-quotes Storage bucket exists; upload PDF (upsert)
+ *   5. Get 30-day signed URL for the PDF
+ *   6. Send email via Resend with PDF attached (lib/email.ts)
+ *   7. Update quote: status='sent', pdf_url, sent_at
+ *
+ * Failure paths revert status to its pre-send value:
+ *   - PDF render → 500
+ *   - Storage upload → 500
+ *   - Resend send → 500 (pdf_url is preserved)
+ *
+ * Returns: { quote, pdf_url, sent_at }
+ */
+
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/db/supabase";
 import { renderProposalPdf } from "@/lib/pdf/render";

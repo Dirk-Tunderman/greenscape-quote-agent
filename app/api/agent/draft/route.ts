@@ -1,10 +1,30 @@
+/**
+ * POST /api/agent/draft — orchestrator entry.
+ *
+ * Request: DraftRequestBody (see lib/types.ts and BodySchema below).
+ *
+ * Response (200):
+ * {
+ *   quote_id, status ("draft_ready" | "validation_failed"),
+ *   total_amount, cost_usd, budget_exceeded,
+ *   validation: ValidationResult,
+ *   ambiguities: Ambiguity[]
+ * }
+ *
+ * Caller then GET /api/quotes/[id] for the full QuoteDetail.
+ *
+ * Errors:
+ * - 400 — body fails zod parse
+ * - 500 — orchestrator throws. Quote row may exist at validation_failed.
+ *
+ * maxDuration=240s covers worst-case 16-line-item runs (~160s observed).
+ */
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runDraft } from "@/lib/orchestrator";
 
 export const runtime = "nodejs";
-// LLM chain can take ~95s on a complex 9-line-item project (5 skills + 1 retry).
-// Give the route enough headroom for the worst case.
 export const maxDuration = 240;
 
 const BodySchema = z.object({

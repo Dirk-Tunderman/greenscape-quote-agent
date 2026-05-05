@@ -1,3 +1,29 @@
+/**
+ * Skill 3: flag_ambiguity
+ *
+ * Reads the raw notes + extracted scope + priced items and surfaces the
+ * specific clarifying questions Marcus should resolve before the quote
+ * goes to the customer. Haiku because this is classification-style work
+ * and we want noise control, not generation quality.
+ *
+ * Output is `Ambiguity[]` capped at 5 — a noisy ambiguity list is useless.
+ *
+ * Soft-fail: if the LLM output doesn't parse, the skill returns `[]` rather
+ * than failing the run. An ambiguity list is helpful but not load-bearing —
+ * the proposal can still go out, Marcus just loses the heads-up.
+ *
+ * Severity grades:
+ * - "blocker"  — must resolve before sending
+ * - "warn"     — should review
+ * - "info"     — FYI
+ *
+ * Verified ambiguities from integration tests:
+ * - Patel: travertine finish/thickness (blocker), caliche depth (warn),
+ *   drip layout (warn)
+ * - Chen: gas trench length (blocker), Scottsdale-vs-Phoenix permit (blocker),
+ *   kitchen unit composition (warn)
+ */
+
 import { z } from "zod";
 import { callClaude, extractText, parseJsonFromText } from "@/lib/anthropic";
 import type { AuditContext } from "@/lib/audit";

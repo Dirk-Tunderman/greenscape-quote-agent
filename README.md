@@ -18,11 +18,18 @@ This agent removes Marcus from the drafting loop:
 
 ## Status
 
-🚧 **In development** — strategy and architecture complete; implementation in progress.
+✅ **Live on production** — https://quote-agent.tunderman.cc
+
+Backend (5 skills + orchestrator + 5 API routes + branded PDF + Resend email) is complete and verified end-to-end with two production integration tests (Patel $15,955 patio, Chen $59,000 full backyard). Frontend (4 pages + design system) ships against the API contract in `lib/types.ts`. Deploy infra (Caddy + LE cert + systemd) is set up and serving.
+
+For a full snapshot of what currently works (and doesn't), read [`docs/11-current-state.md`](./docs/11-current-state.md).
 
 ## Documentation
 
 Grouped by concern. Read `STATUS.md` first for current state across the multi-chat build.
+
+**Snapshot (read this first)**
+- [`docs/11-current-state.md`](./docs/11-current-state.md) — what the application actually does today (the WHAT)
 
 **Coordination**
 - [`STATUS.md`](./STATUS.md) — live multi-chat coordination dashboard
@@ -62,11 +69,21 @@ Grouped by concern. Read `STATUS.md` first for current state across the multi-ch
 ## Run locally
 
 ```bash
-# (instructions populated once Phase 0 of build is complete)
+git clone https://github.com/Dirk-Tunderman/greenscape-quote-agent
+cd greenscape-quote-agent
 npm install
-cp .env.example .env.local   # populate with your keys
-npm run dev
+cp .env.example .env.local   # populate ANTHROPIC + SUPABASE + RESEND keys
+npm run dev                  # → http://localhost:3000
 ```
+
+Required env vars:
+- `ANTHROPIC_API_KEY` — for the agent skill chain (Sonnet 4.5 + Haiku 4.5)
+- `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `RESEND_API_KEY` / `RESEND_FROM_EMAIL`
+
+See [`docs/11-current-state.md`](./docs/11-current-state.md) → "Configuration" for the full list and how the keys flow through the stack.
+
+To recreate the Supabase schema in a fresh project, apply the 3 SQL files under [`supabase/migrations/`](./supabase/migrations/) in order. PostgREST needs `greenscape` added to the project's "Exposed schemas" (Data API → Settings) — the schema isolation prevents accidental coupling with other apps on a shared instance.
 
 ## Deployment
 

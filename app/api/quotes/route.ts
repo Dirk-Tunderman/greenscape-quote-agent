@@ -1,3 +1,17 @@
+/**
+ * GET /api/quotes — list quotes ordered newest first (cap 200).
+ *
+ * Query: ?status=<QuoteStatus>  (optional filter)
+ *
+ * Response: { quotes: QuoteSummary[] }
+ *
+ * Notes:
+ * - Joins customers (id, name, email) for the table view
+ * - Supabase nested-select returns customer as either object or array;
+ *   we normalise to a single object client-side
+ * - Used by /quotes (Chat B's list page)
+ */
+
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/db/supabase";
 import type { QuoteSummary } from "@/lib/types";

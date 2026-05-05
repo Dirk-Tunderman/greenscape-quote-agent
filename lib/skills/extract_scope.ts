@@ -1,3 +1,24 @@
+/**
+ * Skill 1: extract_scope
+ *
+ * Turns Marcus's freeform site walk notes into a structured `ScopeItem[]`.
+ * Sonnet because wrong extraction propagates to every downstream skill.
+ *
+ * Output is zod-validated. On parse failure the skill performs ONE corrective
+ * re-prompt with the parse error attached, then throws if it still fails.
+ *
+ * Behavior contract:
+ * - Each ScopeItem has `certainty: high | medium | low`. `low` items must
+ *   carry a `needs_clarification` question that flag_ambiguity will surface
+ *   to Marcus.
+ * - The skill never invents dimensions. If a quantity is unclear in the
+ *   notes, it sets `dimensions: null` and `certainty: low`.
+ *
+ * Few-shot examples below cover (a) a happy-path detailed note and (b) a
+ * deliberately sparse note where the model must surface clarification
+ * questions instead of guessing.
+ */
+
 import { z } from "zod";
 import { callClaude, extractText, parseJsonFromText } from "@/lib/anthropic";
 import type { AuditContext } from "@/lib/audit";

@@ -1,3 +1,39 @@
+/**
+ * Orchestrator — the single entry point that turns a `DraftRequestBody`
+ * (customer info + raw site walk notes) into a fully priced, validated quote
+ * with persisted artifacts and a complete audit trail.
+ *
+ * Flow (sequential; one corrective retry of generate_proposal on validate fail):
+ *
+ *   1. Resolve customer (find by email or insert)
+ *   2. Insert quotes row at status='drafting'
+ *   3. extract_scope     (Sonnet)         → ScopeItem[]
+ *   4. match_pricing     (Sonnet w/ tools) → priced QuoteLineItem[]
+ *      verifyCatalogIds                   → reject hallucinated UUIDs
+ *   5. flag_ambiguity    (Haiku)          → Ambiguity[] (max 5)
+ *   6. generate_proposal (Sonnet)         → markdown
+ *   7. validate_output   (Haiku + regex)  → {pass, issues}
+ *      if !pass and budget remaining → retry generate_proposal once with
+ *      corrective feedback, then re-validate
+ *   8. Persist quote_line_items, update quotes row (status, total, markdown,
+ *      total_cost_usd), flush audit_log
+ *
+ * Cost guardrail: PER_QUOTE_BUDGET_USD = $0.50, checked before the retry. If
+ * the run fails mid-chain, the quotes row is marked validation_failed and
+ * whatever audit entries exist are still flushed.
+ *
+ * Integration points:
+ * - Calls Anthropic via lib/anthropic.ts (single SDK wrapper)
+ * - Reads + writes Supabase via lib/db/supabase.ts (greenscape schema)
+ * - Records every LLM call via lib/audit.ts → audit_log table
+ *
+ * Failure modes:
+ * - Anthropic timeout (60s per call) → throws → status=validation_failed
+ * - LLM returns malformed JSON → skill itself retries once, then throws
+ * - match_pricing returns IDs not in catalog → throws
+ * - validate_output rejects twice → status=validation_failed (Marcus reviews)
+ */
+
 import { extractScope } from "@/lib/skills/extract_scope";
 import { matchPricing, verifyCatalogIds } from "@/lib/skills/match_pricing";
 import { flagAmbiguity } from "@/lib/skills/flag_ambiguity";

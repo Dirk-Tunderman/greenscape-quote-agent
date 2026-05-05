@@ -1,3 +1,35 @@
+/**
+ * GET /api/quotes/[id] — full QuoteDetail for the review/edit page.
+ *
+ * Response: QuoteDetail = {
+ *   quote, customer, line_items[], artifacts: {scope, ambiguities, validation},
+ *   audit_log[]
+ * }
+ *
+ * Reads in parallel: quote row, line items, artifacts, audit log. Then a
+ * second roundtrip for the customer (id from the quote).
+ *
+ * 404 if quote not found.
+ *
+ *
+ * PATCH /api/quotes/[id] — apply Marcus's edits.
+ *
+ * Body: any subset of {
+ *   proposal_markdown?, outcome_notes?, status?, line_items?
+ * }
+ *
+ * Behavior:
+ * - line_items: full replacement (drop existing rows, insert new). Each row's
+ *   line_total is recomputed server-side as quantity * unit_price_snapshot
+ *   so the client can't desync the math.
+ * - total_amount on the quote row is always recomputed from current line items
+ * - status: setting to accepted|rejected|lost auto-stamps outcome_at
+ * - proposal_markdown: stored as-is (Marcus's edit is canonical)
+ *
+ * Used by Chat B's /quotes/[id] inline-edit table + proposal markdown
+ * editor + outcome panel.
+ */
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/db/supabase";

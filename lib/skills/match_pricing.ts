@@ -1,3 +1,31 @@
+/**
+ * Skill 2: match_pricing
+ *
+ * Maps the structured ScopeItem[] to real catalog rows from greenscape.line_items.
+ * Sonnet with tool use — the only catalog-aware skill.
+ *
+ * Tool: `lookup_line_items(category, search_terms)` — fuzzy ILIKE search on
+ * (name, description) within a category, with a category-only fallback if the
+ * search returns 0 rows. Capped at 10 candidates per call to keep prompts lean.
+ *
+ * Conversation loop runs up to MAX_ITERATIONS (10) tool-use turns before
+ * forcing a final JSON answer. Each iteration is logged to audit_log so
+ * we can see how many tool calls a quote took.
+ *
+ * Hallucination guards:
+ * - Output schema requires `line_item_id` to be a UUID. After parsing, the
+ *   orchestrator additionally calls `verifyCatalogIds` to confirm every
+ *   ID exists in the live catalog (rejects fabricated UUIDs that happen
+ *   to pass uuid format).
+ * - System prompt instructs the model to put unknowns in
+ *   `custom_item_requests` rather than fake a price.
+ *
+ * Schema notes:
+ * - `source_scope_item_index` accepts null and transforms to -1 for
+ *   project-level items (permits, cleanup) that don't map to a single
+ *   scope item index.
+ */
+
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { callClaude, parseJsonFromText } from "@/lib/anthropic";

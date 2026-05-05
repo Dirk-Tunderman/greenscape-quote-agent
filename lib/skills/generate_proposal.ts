@@ -1,3 +1,34 @@
+/**
+ * Skill 4: generate_proposal
+ *
+ * Writes the customer-facing proposal markdown in Marcus's voice. Sonnet
+ * with two few-shot examples from data/historical-proposals.json.
+ *
+ * Output is a single Markdown document with 8 H2 sections (see system
+ * prompt). The markdown is the canonical edit surface in the admin UI;
+ * the PDF template (lib/pdf/template.tsx) renders the SAME structured
+ * data into a branded PDF independently.
+ *
+ * Voice (per docs/06-assumptions.md #4 + research D27):
+ * - Premium craftsman, warm not corporate, specific to the project
+ * - Greeting MUST reference site walk by date + 1-2 specific observations
+ *   from raw_notes (validates: a generic "thanks for reaching out" is
+ *   caught by the LLM voice check in validate_output)
+ * - No salesy modifiers ("amazing", "stunning", "premium experience")
+ * - Allowance items flagged "(allowance)" in the pricing table
+ *
+ * Math contract:
+ * - Project Total in the markdown MUST equal the sum of priced_items.line_total
+ *   exactly (validate_output enforces deterministically)
+ * - Payment schedule percentages MUST sum to 100
+ *
+ * Retry path:
+ * - If validate_output fails on the first attempt, the orchestrator calls
+ *   this skill again with `corrective_feedback` listing the specific issues.
+ *   The model is told to keep valid content from the previous draft and
+ *   only address the issues.
+ */
+
 import { callClaude, extractText } from "@/lib/anthropic";
 import type { AuditContext } from "@/lib/audit";
 import {

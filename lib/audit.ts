@@ -1,3 +1,22 @@
+/**
+ * AuditContext — accumulates per-skill records during one orchestrator run
+ * and flushes them as a batched insert into greenscape.audit_log at the end.
+ *
+ * Why batched (not per-call):
+ * - One DB roundtrip instead of 5–9 (every quote logs that many skill calls)
+ * - If the run dies mid-chain, the orchestrator's catch block still calls
+ *   flush() so partial audits are preserved
+ *
+ * Cost-cap guardrail: orchestrator reads `audit.cost()` to decide whether
+ * to spend the corrective retry of generate_proposal (only if total <
+ * PER_QUOTE_BUDGET_USD).
+ *
+ * Storage: input + output payloads are JSON-stringified, truncated to
+ * MAX_JSON_BYTES so the audit_log.input/output columns don't get bloated
+ * by long markdown bodies. Truncated payloads are wrapped as
+ * { __truncated: true, preview: "..." }.
+ */
+
 import { getSupabaseAdmin } from "@/lib/db/supabase";
 import type { CallResult } from "@/lib/anthropic";
 

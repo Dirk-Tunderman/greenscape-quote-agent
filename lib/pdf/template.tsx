@@ -1,3 +1,39 @@
+/**
+ * Branded PDF template for the customer-facing proposal.
+ *
+ * react-pdf does not parse markdown — it renders React elements. We build
+ * the page tree directly from the structured data (priced_items, customer,
+ * quote.payment_schedule, etc.) — the proposal markdown stored on the quote
+ * is the admin-facing edit surface; THIS template is what the customer sees.
+ *
+ * Both surfaces are rendered from the same source data, so they should
+ * always match in content. If Marcus edits the markdown the PDF still
+ * regenerates from line items, not from the markdown — keeping the PDF
+ * structurally consistent with the priced_items table.
+ *
+ * Sections (in render order):
+ *   - Cover page (proposal #, customer name, address, date, brand mark)
+ *   - Greeting (synthesized; PDF doesn't yet pull markdown's greeting line)
+ *   - Scope summary (auto-generated from line item categories)
+ *   - Detailed Scope & Pricing table (grouped by category; tabular numerals)
+ *   - Project total (terracotta accent line)
+ *   - Render badge if needs_render (>$30K)
+ *   - Exclusions
+ *   - Timeline
+ *   - Warranty
+ *   - Terms (per-quote payment schedule)
+ *   - Signature
+ *
+ * Fonts: react-pdf's bundled Helvetica + Times-Roman to avoid depending on
+ * a network fetch at render time. (We tried Google Fonts CDN URLs; they
+ * 404'd on Inter weight 600.) Day-1 swap to local Inter/Cormorant via
+ * `Font.register({ src: "/fonts/Inter-Regular.ttf" })` once a font asset
+ * pipeline lands.
+ *
+ * Brand colors mirror tailwind.config.ts: Mojave Green / Sandstone /
+ * Caliche White / Adobe / Sunset Terracotta.
+ */
+
 import {
   Document,
   Page,
@@ -6,15 +42,6 @@ import {
   View,
 } from "@react-pdf/renderer";
 import type { Customer, Quote, QuoteLineItem } from "@/lib/types";
-
-// react-pdf does not parse markdown; it renders React elements. We build the page tree
-// from the structured data (priced_items, customer, etc.) — the markdown view is for
-// the admin UI; the PDF is the canonical send artifact built from the same source data.
-//
-// Using react-pdf's bundled "Helvetica" + "Times-Roman" so we don't depend on
-// the network at PDF render time. Day-1 swap for real Inter/Cormorant via
-// `Font.register({ src: "/fonts/Inter-Regular.ttf" })` once a font asset
-// pipeline is in place.
 
 const COLORS = {
   mojaveGreen: "#2C4A3A",

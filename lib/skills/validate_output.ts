@@ -1,3 +1,38 @@
+/**
+ * Skill 5: validate_output — the gate before commit.
+ *
+ * Combines:
+ *  (a) Deterministic regex checks against the proposal markdown (13 checks)
+ *  (b) Haiku voice + factual-claim review (T=0.0 for consistency)
+ *
+ * Pass criterion: NO issues with severity="error". `warn` issues are passed
+ * back as advisory but don't block.
+ *
+ * Why both deterministic + LLM:
+ * - Deterministic catches things that don't need judgement (section
+ *   structure, math, customer-name presence) — fast, free, never wrong
+ * - LLM catches voice drift and unsupported factual claims — judgement work
+ *   that regex can't do
+ *
+ * Deterministic checks performed:
+ *  - 11 required-section regex matches (H1, H2, sections, signature)
+ *  - Total math: stated **Project Total: $X** == sum of priced_items.line_total
+ *  - Customer name appears in proposal (case-insensitive)
+ *  - Pricing-table row totals all correspond to a real priced item line_total
+ *  - Payment-schedule percentages sum to 100 (when input.payment_schedule provided)
+ *
+ * LLM checks performed:
+ *  - voice_premium_warm — flags "amazing", "stunning", "premium experience"
+ *  - voice_no_hardsell  — flags urgency tactics, fake scarcity
+ *  - factual_unsupported_claims — flags claims not derivable from the input
+ *  - factual_customer_match
+ *  - voice_specific_not_generic
+ *
+ * Behavior on fail: orchestrator constructs a corrective-feedback string
+ * from the error issues and re-prompts generate_proposal once. If that
+ * second draft also fails, status=validation_failed (Marcus reviews).
+ */
+
 import { z } from "zod";
 import { callClaude, extractText, parseJsonFromText } from "@/lib/anthropic";
 import type { AuditContext } from "@/lib/audit";

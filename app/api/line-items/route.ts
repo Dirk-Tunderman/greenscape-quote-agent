@@ -1,3 +1,10 @@
+/**
+ * GET /api/line-items — read-only catalog for /admin/line-items.
+ *
+ * Returns active items only, ordered by category then unit_price.
+ * Response: { line_items: LineItem[] }
+ */
+
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/db/supabase";
 import type { LineItem } from "@/lib/types";
