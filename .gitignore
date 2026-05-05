@@ -45,3 +45,6 @@ supabase/.temp/
 # Misc
 .cache/
 .turbo/
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
