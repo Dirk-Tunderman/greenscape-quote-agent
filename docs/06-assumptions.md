@@ -47,21 +47,21 @@ The architecture is built so that every assumption maps to a swappable component
 
 **What docs say:** Margin is ~38% on design+build (onboarding line 24). 50% deposit on signing (line 71). Nothing else.
 
-**What we assumed:**
-- Prices are all-in (labor + materials bundled per line item), not separated
+**What we assumed (validated by `docs/10-industry-research.md`):**
+- Prices are all-in (labor + materials bundled per line item), not separated → ✅ confirmed by research Q1 (residential design-build standard)
 - 38% margin is already baked into each `unit_price`, not added on top
-- No tax line on the proposal (Marcus presumably handles tax at invoice stage via Stripe/QuickBooks)
-- No contingency line item (Marcus eats overage from his margin)
-- No discount logic — Marcus quotes firm; if he discounts, he edits the line in admin
+- No tax line on the proposal → ✅ confirmed by research Q3. Phoenix/AZ specific: post-July-2021 statute removed the requirement to separately state TPT, AND there's a residential exemption from prime-contracting TPT for projects ≤$100K per unit (covers most of $8K-$120K range). Flag this to Marcus at onboarding — potential money on the table.
+- No contingency line item → ✅ confirmed by research Q6 (contingency = unknown-unknown, kept internal). BUT add **allowances** (known-unknowns like "lighting fixtures: $1,200 allowance") via `item_type` enum on `line_items`.
 - Custom items (anything not in catalog) get `is_custom = true`, `unit_price = 0` placeholder, surfaced to Marcus to price manually
+- **Payment schedule REVISED** (was 50/25/25, now 30/30/30/10) — research Q2 found 50% deposit is on the aggressive end; premium positioning calls for lower deposit / milestone-based draws. Default: deposit / mobilization / midpoint / completion = 30/30/30/10. Schema-configurable per quote.
 
-**Why defensible:**
-- All-in pricing matches how most residential design-build companies quote (vs labor-broken-out which is more commercial/industrial)
-- 38% margin in price aligns to the doc's stated revenue/margin numbers
-- No tax on quote = standard for residential US contractors (tax shown on invoice)
-- "Custom" handling preserves Marcus's authority over judgment calls
+**Why defensible (post-research):**
+- All-in pricing: industry standard for residential design-build (research Q1, high confidence)
+- AZ TPT bundling: Arizona DOR explicitly permits factoring; 2021 statute change removed separately-stated requirement
+- Allowance vs contingency: AIA + Buildertrend industry guidance (research Q6)
+- 30/30/30/10 payment schedule: Angi/Sweeten cap "normal" deposit at 25-33%; matches premium positioning
 
-**Day 1 of real engagement:** Confirm pricing model with Marcus in 15 min. If he separates labor/materials, we add fields and update the proposal template. Schema migration only if structure differs (rare).
+**Day 1 of real engagement:** Confirm Marcus's actual current pricing model + payment schedule + AZ TPT election (factoring vs separately stated). Schema is configurable, no code change needed.
 
 ---
 
@@ -69,27 +69,30 @@ The architecture is built so that every assumption maps to a swappable component
 
 **What docs say:** *"plugs line items into a Google Doc template"* (transcript line 11), exports to PDF (onboarding line 64). 50% deposit (line 71). Customer signs via DocuSign-style flow in GHL after (line 70). Nothing about sections, length, or voice.
 
-**What we assumed (7-section structure):**
+**What we assumed (REVISED 7→9 sections per `docs/10-industry-research.md`):**
 
 | # | Section | Purpose |
 |---|---|---|
 | 1 | Cover Page | Greenscape Pro logo placeholder, "Proposal for [Customer Name]", project address, date, proposal #, optional cover banner |
-| 2 | Greeting / Introduction | 1 paragraph in Marcus's voice; references the site walk; sets tone |
-| 3 | Project Overview | 1-2 paragraphs; plain-English scope summary; key materials and special considerations |
-| 4 | Detailed Scope & Pricing | Line items table grouped by category; subtotal per category; project subtotal; project total |
-| 5 | Timeline | Estimated start date range, duration in weeks, phased milestones |
-| 6 | Terms & Next Steps | 50% deposit on signing, 25% mid-project, 25% on completion; 30-day proposal validity; change order policy; warranty mention |
-| 7 | Signature Block | Customer signature line, Marcus signature line, dates |
+| 2 | Greeting / Introduction | 1 paragraph, warm/name-first, references the site walk by date + 1-2 specific observations from notes (research Q10 — "warm-and-fuzzy part") |
+| 3 | Project Overview | 1-2 paragraphs scope summary + optional 1-3 past project photos (research Q9 — premium contractors embed photos) |
+| 4 | Detailed Scope & Pricing | All-in line items grouped by category (research Q1); subtotal per category; **allowance items flagged distinctly** (research Q6); project total |
+| 5 | **Exclusions** ⭐NEW⭐ | Explicit "what's NOT included" — kills the most common dispute pattern. Typical: permits beyond stated allowance, utility relocation, irrigation repair beyond visible damage, HOA fees, post-install plant replacement (research Q4) |
+| 6 | Timeline | Estimated start date range, duration in weeks, phased milestones |
+| 7 | **Warranty** ⭐NEW⭐ | Separate trust-building section: "2-yr workmanship hardscape, 1-yr irrigation, 90-day plant material, manufacturer warranties pass through" (research Q5 — Belgard authorized installer norm is 3-yr min; defaults to 2-yr conservative) |
+| 8 | Terms & Next Steps | Payment schedule **30/30/30/10** (revised from 50/25/25 per research Q2); 30-day validity; change order clause: *"All changes require written authorization before work proceeds; verbal requests not actionable"* (research Q11) |
+| 9 | **Signature + License Block** ⭐NEW⭐ | Customer + Marcus signature lines; **ROC license # required by AZ statute** (research Q7); insurance carrier line (recommended trust signal) |
 
-**Length:** 4-6 pages PDF (cover + 3-4 content + signature)
+**Length:** 5-6 pages PDF (research Q8 — sweet spot for residential design-build; >10 pages = over-engineered for $28K).
 
 **Why defensible:**
-- 7-section structure is industry-standard for residential design-build proposals
-- The 50%/25%/25% payment schedule is the most common variant for Phoenix residential
-- 30-day validity is standard
-- Reads professional without being overdesigned
+- 9-section structure validated by industry research across NALP, Aspire, PandaDoc, Buildertrend, Belgard authorized templates
+- Exclusions = standard residential best practice (research Q4, high confidence)
+- Separate warranty section = primary trust-builder for premium positioning (research Q5)
+- ROC license display = required by Arizona statute (research Q7, high confidence)
+- 30/30/30/10 payment = matches premium positioning + Angi/Sweeten norms
 
-**Day 1 of real engagement:** Ask Marcus to email us his current Google Doc template. Mirror its sections, voice, and order in our HTML/CSS template. Re-render the same dynamic content into his exact layout. ~2-3 hours of template work.
+**Day 1 of real engagement:** Ask Marcus to email us his current Google Doc template. Mirror sections, voice, and order in our HTML/CSS template — likely already close to industry-standard 9-section pattern.
 
 ---
 
@@ -97,15 +100,16 @@ The architecture is built so that every assumption maps to a swappable component
 
 **What docs say:** Greenscape positioning is *"quality, reliability, and a finished product that photographs well"* (onboarding line 18). Premium. Doesn't compete on price. Customers apologize when they pick competitors (transcript line 19). Marcus's reactivation language is personal: *"Hey, we were talking about your backyard last spring..."* (line 59).
 
-**What we assumed (voice spec for `generate_proposal` skill):**
+**What we assumed (voice spec for `generate_proposal` skill — validated by `docs/10-industry-research.md`):**
 - **Premium craftsman.** Confident in the work, specific in the details.
-- **Warm, not corporate.** Speaks to the customer, not at them.
-- **Specific to their project.** Avoids generic templating phrases. References their yard, their materials, their use case.
+- **Warm, not corporate.** Speaks to the customer, not at them. ✅ Validated (research Q10 — "warm-and-fuzzy" intro is residential standard).
+- **Specific to their project.** Avoids generic templating phrases. **Greeting must reference the site walk by date + 1-2 specific observations from notes** (research Q10 reinforcement).
+- **Material descriptions stay at category/grade level** (e.g., "premium travertine pavers, French pattern"), NOT SKU-locked — reflects design-build phase reality (research Q13 — major material/color commitments deferred to design-development phase post-walk).
 - **Transparent on pricing.** No hidden fees, no markup obfuscation.
 - **No hard-sell.** No urgency tactics, no discounts framed as favors.
 - **No salesy modifiers.** Avoid "amazing", "stunning", "perfect" — let the work speak.
 
-**Why defensible:** Derived directly from Greenscape's positioning ("photographs well", premium, quality), Marcus's own demonstrated voice in the reactivation example, and the customer-base description (high-end residential — they respond to craftsmanship, not pitches).
+**Why defensible:** Derived from Greenscape's positioning + validated by industry research on residential design-build proposal voice norms across multiple sources.
 
 **Day 1 of real engagement:** Marcus sends us 3-5 of his best past proposals → we extract his actual voice patterns → update the few-shot examples in `generate_proposal.ts`. Same skill, sharper voice.
 

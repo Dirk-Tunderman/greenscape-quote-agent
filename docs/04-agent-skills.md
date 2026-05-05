@@ -190,22 +190,26 @@ The tool queries the `line_items` table by category + fuzzy match on name/descri
 - Embrace: specific references to the customer's project, clear scope, transparent pricing
 - Brand position: quality > price; "photographs well"
 
-**Required sections:**
-1. Cover (greeting, project type, address)
-2. Scope summary (paragraph)
-3. Line items table (markdown)
-4. Project total (with deposit terms)
-5. Estimated timeline
-6. Terms & next steps
-7. Signature block
+**Required sections (9, per `docs/06-assumptions.md` Section 3 + `docs/10-industry-research.md`):**
+1. Cover (logo placeholder, "Proposal for [Customer Name]", address, date, proposal #)
+2. Greeting / Introduction (warm, name-first, references site walk by date + 1-2 specific observations)
+3. Project Overview (1-2 paragraphs scope + optional 1-3 past-project photo placeholders)
+4. Detailed Scope & Pricing (line items grouped by category; allowance items distinctly flagged)
+5. **Exclusions** (explicit "what's NOT included" — kills dispute pattern)
+6. Timeline (start date range, duration, phased milestones)
+7. **Warranty** (default: "2-yr workmanship hardscape, 1-yr irrigation, 90-day plant material, manufacturer warranties pass through")
+8. Terms & Next Steps (payment schedule from `quotes.payment_schedule` jsonb; default 30/30/30/10; 30-day validity; change order clause)
+9. **Signature + License Block** (Customer + Marcus signature lines; **ROC license # is required on AZ contracts**; insurance carrier line)
 
-**Prompt strategy:** Few-shot with 2-3 example proposals (synthetic but representative). Explicit voice instruction. Render line items as a clean markdown table.
+**Prompt strategy:** Few-shot with 2-3 example proposals (synthetic but representative). Explicit voice instruction (premium craftsman, warm, transparent, no salesy modifiers). Render line items as a clean markdown table grouped by category. Material descriptions stay at category/grade level (e.g., "premium travertine pavers, French pattern"), NOT SKU-locked — reflects design-build phase reality.
 
 **Guardrails:**
-- Must include all 7 required sections (validator checks)
+- Must include all 9 required sections (validator checks)
 - Total in proposal must match sum of `line_total` across `priced_items`
 - Customer name must match `customer_info.name`
 - No prices appear that aren't in `priced_items`
+- Payment schedule percentages must sum to 100
+- ROC license # must appear in section 9 (AZ statutory requirement)
 
 ---
 
@@ -224,10 +228,12 @@ The tool queries the `line_items` table by category + fuzzy match on name/descri
 **Validation checks (combined: deterministic + LLM):**
 
 Deterministic (code, not LLM):
-- All required sections present (regex on headers)
+- All 9 required sections present (regex on headers — Cover, Greeting, Project Overview, Detailed Scope & Pricing, Exclusions, Timeline, Warranty, Terms & Next Steps, Signature + License Block)
 - Total in proposal matches sum of `priced_items.line_total` exactly
-- Customer name appears in cover
+- Customer name appears in cover + greeting
 - No line item names appear that aren't in `priced_items`
+- ROC license # appears in section 9 (AZ statutory requirement)
+- Payment schedule percentages sum to 100
 
 LLM-based:
 - Voice/tone matches style guide (warm, premium, no salesy/corporate)

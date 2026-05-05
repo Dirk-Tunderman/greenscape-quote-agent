@@ -15,6 +15,20 @@ Next update: end of Phase 1
 
 **Phase 0 → Phase 1 transition.** Chat B has scaffolded Next.js + types + design tokens + mock catalog. Chat A now owns: backend deps, Supabase migration + seed, agent skill chain, API routes, PDF, email.
 
+---
+
+## ⚡ HEADS-UP for Chat A and Chat B (industry research integrated 2026-05-05)
+
+`docs/10-industry-research.md` was just written and integrated. **Schema and proposal template changed** before you commit your migrations / few-shot examples. Read decision log entries D26-D30. Specifically:
+
+- **`greenscape.line_items`** has a new `item_type` enum (`fixed | allowance | custom`). Default `fixed`. Update your migration + seed accordingly. (`docs/03-architecture.md` updated.)
+- **`greenscape.quotes`** has 3 new columns: `payment_schedule jsonb` (default 30/30/30/10), `roc_license_number text`, `insurance_carrier text`. (`docs/03-architecture.md` updated.)
+- **Proposal template is now 9 sections, not 7.** Added Exclusions (#5), Warranty (#7), License Block (#9). `generate_proposal` skill spec updated in `docs/04-agent-skills.md` — required-section count is now 9, plus new validation rules (ROC # must appear, payment_schedule pcts sum to 100). Few-shot historical proposals (Chat A's task #2) should reflect 9 sections.
+- **Voice spec** reinforced: greeting must reference site walk by date + 1-2 specific observations; material descriptions stay at category/grade level (no SKU lock-in).
+- **Chat B mock catalog (`lib/mocks/catalog.ts`)** should add `item_type` field to align with new schema. Most existing items = `fixed`. Add 1-2 `allowance` examples (e.g., "Lighting allowance: $1,200").
+
+**One client-engagement-grade finding (not architectural):** AZ TPT residential exemption ≤$100K per unit covers most of Marcus's $8K-$120K range — flag at Day 1 of real engagement, potential money on the table. (`docs/09-decision-log.md` D29.)
+
 Phase progression (from `docs/05-build-plan.md`):
 - [x] Pre-build planning + strategy + setup docs
 - [x] Phase 0 — Setup (Next.js 15 scaffold + TS + Tailwind + types + design tokens — done by Chat B; backend deps + Supabase wiring in progress by Chat A)
@@ -95,6 +109,8 @@ Phase progression (from `docs/05-build-plan.md`):
 | 2026-05-05 | Chat C | Created `/opt/greenscape-quote-agent` on Server 1 + snapshotted services, ports, Caddyfile (in `/tmp/*-before.*`) |
 | 2026-05-05 | Chat A | Onboarded; STATUS sync; began Phase 1 (Supabase migration + backend deps) |
 | 2026-05-05 | Chat B | Scaffolded Next.js 15 + TS + Tailwind w/ brand tokens; wrote `lib/types.ts` (API contract), `lib/mocks/catalog.ts` (~80 items), `lib/utils.ts`, `.env.example` skeleton (uncommitted) |
+| 2026-05-05 | planning | ⚡ Industry research integrated → schema + 9-section template (D26-D30); see HEADS-UP above |
+| 2026-05-05 | planning | `docs/10-industry-research.md` written (research sub-agent, 1466 words, 15 questions answered with primary sources) |
 | 2026-05-05 | planning | Initial commit pushed: strategy.md + docs/00-09 + STATUS.md + prompts/ |
 | 2026-05-05 | planning | Decision log created (`docs/09-decision-log.md`) |
 | 2026-05-05 | planning | Design system created (`docs/08-design-system.md`) |

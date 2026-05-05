@@ -120,8 +120,9 @@
 | category | text | one of: patio, pergola, fire_pit, water_feature, artificial_turf, irrigation, outdoor_kitchen, retaining_wall |
 | name | text | e.g., "Travertine paver patio - premium grade" |
 | description | text | for the LLM context |
-| unit | text | sq_ft, linear_ft, each, zone, hour |
-| unit_price | numeric | base price |
+| unit | text | sq_ft, linear_ft, each, zone, hour, lump_sum |
+| unit_price | numeric | base price (all-in: labor + materials bundled per `docs/10-industry-research.md` Q1) |
+| item_type | enum | `fixed` (default), `allowance` (known-unknown shown to customer, e.g., "lighting fixtures: $1,200 allowance"), `custom` (Marcus prices manually). Per research Q6. |
 | material_cost_pct | numeric | informational |
 | created_at | timestamptz | |
 | active | boolean | for soft-deletes |
@@ -137,6 +138,9 @@
 | total_amount | numeric | computed sum |
 | needs_render | boolean | true if total > $30K |
 | proposal_markdown | text | generated copy, editable |
+| payment_schedule | jsonb | default `[{milestone:"deposit",pct:30},{milestone:"mobilization",pct:30},{milestone:"midpoint",pct:30},{milestone:"completion",pct:10}]` per research Q2 (revised from 50/25/25); per-quote configurable |
+| roc_license_number | text | snapshot at proposal time — REQUIRED on AZ contracts per ROC statute (research Q7) |
+| insurance_carrier | text | snapshot — recommended trust signal for premium positioning (research Q7) |
 | pdf_url | text | Supabase Storage URL after generation |
 | sent_at | timestamptz | nullable |
 | outcome_at | timestamptz | nullable |

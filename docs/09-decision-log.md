@@ -167,3 +167,52 @@ Future restructuring possible if scope grows. For now, flat + numbered + grouped
 ### D25 · Git as source-of-truth for tracked progress
 
 **Why:** Every commit is timestamped, attributable, and durable. Combined with STATUS.md (overview) and per-chat work (in their respective files), git history is the cross-chat coordination ledger.
+
+---
+
+## Research-corrected decisions (post `docs/10-industry-research.md`)
+
+### D26 · Payment schedule changed from 50/25/25 to 30/30/30/10
+
+**Why:** Industry research (Q2) found 50% deposit is on the aggressive end. Premium positioning shouldn't lead with the most aggressive cash term — Angi/Sweeten cap "normal" deposit at 25-33%. Modal residential design-build is 10-30% deposit, 60-80% in 2-4 milestone draws, 10-15% on completion.
+
+**New default:** deposit / mobilization / midpoint / completion = 30/30/30/10. Schema-configurable per quote via `quotes.payment_schedule` jsonb.
+
+**Considered:** Keeping 50/25/25 (matches what onboarding doc line 71 calls out as 50% deposit on signing).
+
+**Why we changed:** The 50% in the doc refers to current Marcus practice, not industry premium positioning best practice. Marcus may want to update — or keep his existing schedule (the field is per-quote configurable). Default reflects what we'd recommend.
+
+### D27 · Proposal template expanded from 7 sections to 9
+
+**Why:** Research (Q4, Q5, Q7) identified three sections missing from our template that are residential design-build standard:
+- **Exclusions** — explicit "what's NOT included" — kills the most common dispute pattern (Q4, high confidence)
+- **Warranty** — separate trust-builder section, primary asset for premium positioning (Q5, high confidence)
+- **License + Insurance Block** — AZ statute REQUIRES ROC license # on contracts (Q7, high confidence — primary regulatory source)
+
+**Considered:** Keeping 7 sections (simpler template).
+
+**Why we changed:** The ROC license requirement is statutory, not optional. The Exclusions section is industry-best-practice for dispute prevention. The Warranty section is a primary trust-builder — exactly what premium positioning needs to monetize.
+
+### D28 · Added `item_type` enum to `line_items`: fixed / allowance / custom
+
+**Why:** Research (Q6) distinguished allowances (known-unknowns shown to customer, e.g., "lighting fixtures: $1,200 allowance") from contingency (unknown-unknowns absorbed in margin). Our original schema had no allowance support.
+
+**Allowance line items** are normal in residential design-build to handle pre-design items (lighting, custom plant selections, decorative finishes). They appear in the customer's proposal with the allowance amount; if actual exceeds allowance, change order is triggered.
+
+**Schema change:** added `item_type` column on `greenscape.line_items` (default `fixed`). Backward-compatible.
+
+### D29 · Confirmed AZ TPT residential exemption (potential value to flag to Marcus)
+
+**Why:** Research (Q3) found that Arizona's July 2021 statute change *removed* the requirement to separately state TPT on prime-contracting receipts, AND there's a residential exemption from prime-contracting TPT for projects ≤$100K per unit.
+
+This covers the bulk of Marcus's $8K-$120K project range. **This is potentially money on the table.** Either:
+- Marcus already knows and bills accordingly (good)
+- Marcus doesn't know and may be over-collecting / over-remitting tax (correctable)
+
+**Recommendation:** flag this in a Day 1 onboarding conversation with Marcus. Not an architecture change, but a high-value finding for the actual client engagement.
+
+### D30 · Voice spec reinforced: SKU-level material commitments deferred
+
+**Why:** Research (Q13) — in design-build, major material/color commitments are deferred to a design-development phase post-walk. Site walk produces *direction* (e.g., "travertine over concrete"), not SKU-level commitment.
+
+**Updated `generate_proposal` voice spec:** Material descriptions stay at category/grade level (e.g., "premium travertine pavers, French pattern"), not SKU-locked. Avoids the trap of the AI committing the customer to a specific product before design is finalized.
