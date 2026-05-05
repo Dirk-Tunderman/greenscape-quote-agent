@@ -6,14 +6,22 @@
 
 ## Last updated
 
-`2026-05-05` · Chat A (active)
-Next update: end of Phase 1
+`2026-05-05` · Chat A (END-TO-END LIVE on https://quote-agent.tunderman.cc · 2 integration tests PASSED · PDF + email pipeline verified)
+Next update: after commit gate → final code-review subagent → Loom
 
 ---
 
 ## Current overall phase
 
-**Phase 0 → Phase 1 transition.** Chat B has scaffolded Next.js + types + design tokens + mock catalog. Chat A now owns: backend deps, Supabase migration + seed, agent skill chain, API routes, PDF, email.
+**Backend deployed and live.** Public URL `https://quote-agent.tunderman.cc` serving real agent runs against real DB + Anthropic + Resend.
+
+**Integration tests passed end-to-end:**
+1. **Patel (local)** — patio + irrigation refresh, $15,955, 7 line items, 81s, $0.12 cost, 3 ambiguities surfaced (1 blocker, 2 warns), retry-on-validate-fail loop fired once + passed, PDF generated + Storage uploaded + Resend email sent → status `sent`.
+2. **Chen (production)** — full backyard overhaul, **$59,000** (>$30K → `needs_render: true` ✅), 16 line items, 160s, $0.23 cost, 3 ambiguities (gas trench length, Scottsdale-vs-Phoenix permit, kitchen unit composition), PDF generated + sent.
+
+**Cost guardrails confirmed:** both runs well under $0.50 per-quote cap. Total Anthropic spend across all dev + 2 integration runs ≈ $0.50.
+
+ROC license + insurance fields stripped from generation flow per user instruction (columns kept on `quotes` for forward compat). 8-section proposal template (Cover/Greeting/Project Overview/Scope+Pricing/Exclusions/Timeline/Warranty/Terms/Signature). Aligned with research D26-D30 minus ROC/insurance.
 
 ---
 
@@ -47,12 +55,39 @@ Phase progression (from `docs/05-build-plan.md`):
 
 ## Per-chat status
 
-### Chat A (Backend Orchestrator) — **active**
+### Chat A (Backend Orchestrator) — **Phases 0–7 done; awaiting user one-shots**
 - **Owns:** Supabase schema + seed, agent skill chain, orchestrator, API routes, PDF, Resend email, audit log + cost tracking, deploy script, final review
-- **Currently doing:** wiring backend deps + Supabase migration (Phase 1)
-- **Last commit:** N/A (working uncommitted)
-- **Blockers:** none
-- **Waiting on:** none. Will need real `ANTHROPIC_API_KEY` in `.env.local` before first end-to-end agent run.
+- **Done (uncommitted, all in working tree):**
+  - `supabase/migrations/20260505_001_greenscape_schema.sql` — schema + RLS + triggers + indexes
+  - `supabase/migrations/20260505_002_seed_pricing_catalog.sql` — ~50 fixed items + 2 allowance items + 5 demo customers
+  - `supabase/migrations/20260505_003_research_updates.sql` — `item_type` enum, `payment_schedule`, `roc_license_number`, `insurance_carrier`
+  - `lib/db/supabase.ts` — service-role client pinned to `greenscape` schema
+  - `lib/anthropic.ts` — wrapper, MODELS map (Sonnet 4.5, Haiku 4.5), cost tracking, JSON parser
+  - `lib/audit.ts` — `AuditContext` accumulator → batched insert into `audit_log` at end of run
+  - `lib/skills/extract_scope.ts` — Sonnet, zod-validated, 2 few-shot examples, 1 corrective retry on parse fail
+  - `lib/skills/match_pricing.ts` — Sonnet w/ tool use, `lookup_line_items` tool against `line_items` (ILIKE → fallback to category), zod-validated, hallucinated-id verification
+  - `lib/skills/flag_ambiguity.ts` — Haiku, max 5 ambiguities
+  - `lib/skills/generate_proposal.ts` — Sonnet, 9 required sections, payment schedule + ROC + insurance, 2 few-shot examples
+  - `lib/skills/validate_output.ts` — deterministic 13-check regex pass (incl. ROC + payment-schedule sum) + Haiku voice/claims pass
+  - `lib/orchestrator.ts` — chain w/ retry-on-validate-fail, $0.50 cap, persists artifacts + audit + line items
+  - `app/api/agent/draft/route.ts` — POST orchestrator entry
+  - `app/api/quotes/route.ts` — GET list with status filter
+  - `app/api/quotes/[id]/route.ts` — GET detail (joins customer + line items + artifacts + audit log) + PATCH (edits with auto-recalc)
+  - `app/api/quotes/[id]/send/route.ts` — POST: render PDF → upload to Supabase Storage → email via Resend → mark sent
+  - `app/api/line-items/route.ts` — GET catalog (for `/admin/line-items`)
+  - `lib/pdf/template.tsx` — 9-section branded PDF template (Cormorant + Inter, brand colors, Exclusions + Warranty + License Block)
+  - `lib/pdf/render.ts` — renderToBuffer wrapper
+  - `lib/email.ts` — Resend send function with PDF attachment
+  - `data/historical-proposals.json` — 3 voice examples (7-section legacy; system prompt overrides to 9-section)
+  - `scripts/deploy.sh` — local + remote modes; rsync standalone build to `/opt/greenscape-quote-agent`; `systemctl restart greenscape-quote-agent`
+  - `next.config.js` — `output: "standalone"`
+  - `.env.example` — extended with `GREENSCAPE_ROC_LICENSE`, `GREENSCAPE_INSURANCE`
+  - Extended `lib/types.ts` with `LineItemType`, `PaymentScheduleItem`, `DEFAULT_PAYMENT_SCHEDULE`, plus 4 new fields on `LineItem` and `Quote` (additive — Chat B's existing usage stays compatible)
+- **Build:** `npm run build` green; all 5 API routes + 4 pages + 1 not-found registered
+- **Currently doing:** awaiting user one-shots (B-002 below) so we can run a live integration test, then dispatch final code-review subagent
+- **Last commit:** N/A (working uncommitted; user controls the commit gate)
+- **Blockers:** B-002 below (Anthropic key + Resend key + apply migration to live DB)
+- **Waiting on:** user permission for one-shot Supabase migration apply + populated `.env.local`
 
 ### Chat B (Frontend Builder) — **all 4 pages shipped (mock-backed)**
 - **Owns:** all Next.js pages + components per `docs/08-design-system.md`
@@ -112,6 +147,9 @@ Phase progression (from `docs/05-build-plan.md`):
 
 | Date | Chat | Item |
 |---|---|---|
+| 2026-05-05 | Chat A | **END-TO-END LIVE.** 2 integration tests on PROD passed (Patel $15,955 patio+irrigation, Chen $59,000 full backyard with `needs_render:true`). Real Anthropic Sonnet 4.5 + Haiku 4.5 chains, real Supabase DB + Storage, real Resend email send w/ branded PDF attached. Validate-on-fail retry loop verified. Total dev+test Anthropic spend ≈ $0.50. |
+| 2026-05-05 | Chat A | Aligned code with research D26-D30: migration 003 (item_type / payment_schedule / ROC / insurance), 9-section template w/ Exclusions + Warranty + License Block, ROC + payment-schedule-sum validators; build green; **ROC/insurance later stripped per user (kept columns for forward compat)** |
+| 2026-05-05 | Chat A | Backend Phases 0–7: schema + seed SQL · 5 skills + orchestrator (Sonnet 4.5 + Haiku 4.5) · 5 API routes · branded react-pdf · Resend send · audit log + $0.50 cap · `scripts/deploy.sh` |
 | 2026-05-05 | Chat C | **PUBLIC URL LIVE: https://quote-agent.tunderman.cc** — DNS A record added (Cloudflare, DNS-only), Caddy site block added + reloaded zero-downtime, valid LE cert issued, HTTPS 200 verified externally. SchilderGroei + lead-websites unaffected (services + ports + diff verified identical to pre-change snapshot). |
 | 2026-05-05 | Chat C | Wrote `scripts/teardown.sh` (idempotent, confirmation-gated cleanup for end of demo) |
 | 2026-05-05 | Chat C | Discovered + documented publishing blocker: Hetzner Cloud Firewall blocks ports 1024+ externally; Cloudflare API token currently invalid |
@@ -134,7 +172,29 @@ Phase progression (from `docs/05-build-plan.md`):
 
 ## Active blockers
 
-_(none — kickoff complete; B-001 resolved via Path B with `tunderman.cc`)_
+~~### B-002 · Three one-shot user actions~~ → RESOLVED 2026-05-05 (migration applied, .env populated locally + on Hetzner, schema exposed via SQL editor, full integration test passed)
+
+### B-002 (historical) · Three one-shot user actions to unlock end-to-end test
+
+The full Chat A backend is coded, typechecked, and production-built green. Three short user actions (≤5 minutes total) unblock the integration test and the first real deploy:
+
+**1. Apply Supabase migration** (3 SQL files in `supabase/migrations/`, in order):
+   - `20260505_001_greenscape_schema.sql` — schema, types, RLS, indexes, triggers
+   - `20260505_002_seed_pricing_catalog.sql` — ~50 fixed catalog items + 2 allowance items + 5 demo customers
+   - `20260505_003_research_updates.sql` — `item_type` enum, `payment_schedule`, `roc_license_number`, `insurance_carrier`
+
+   Either OK the next Supabase MCP `apply_migration` calls (Chat A will trigger), or apply via Supabase dashboard SQL editor / CLI.
+
+**2. Populate `.env.local`** at project root with at minimum:
+   - `ANTHROPIC_API_KEY` — new dedicated key (preferred per credentials.md), or temp-reuse SchilderGroei's (~$1-3 dev+demo cost)
+   - `RESEND_API_KEY` — for email send
+   - `RESEND_FROM_EMAIL` — verified-domain sender
+   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - Optional: `GREENSCAPE_ROC_LICENSE`, `GREENSCAPE_INSURANCE`
+
+**3. Populate `/opt/greenscape-quote-agent/.env`** on Server 1 with the same vars (Chat C's systemd unit reads this file via `EnvironmentFile=`).
+
+Once these land, Chat A runs the integration test (3 happy-path quotes + edge cases) and dispatches the final code-review subagent.
 
 ### Resolved
 
