@@ -22,14 +22,32 @@ This agent removes Marcus from the drafting loop:
 
 ## Documentation
 
-- [`strategy.md`](./strategy.md) — Top 5 AI agents ranked for Greenscape Pro (Part 1 deliverable)
-- [`docs/00-project-brief.md`](./docs/00-project-brief.md) — Vision, scope, constraints, success criteria
+Grouped by concern. Read `STATUS.md` first for current state across the multi-chat build.
+
+**Coordination**
+- [`STATUS.md`](./STATUS.md) — live multi-chat coordination dashboard
+- [`prompts/`](./prompts/) — copy-paste prompts for each chat (backend / frontend / deployment)
+
+**Strategy / Deliverable**
+- [`strategy.md`](./strategy.md) — top 5 AI agents ranked (L&S Part 1 deliverable)
+
+**Product**
+- [`docs/00-project-brief.md`](./docs/00-project-brief.md) — vision, scope, constraints, success criteria
 - [`docs/01-jobs-to-be-done.md`](./docs/01-jobs-to-be-done.md) — Marcus, Jenna, Carlos, Customer + system jobs
-- [`docs/02-features.md`](./docs/02-features.md) — Feature list, MVP cut, user stories, edge cases
-- [`docs/03-architecture.md`](./docs/03-architecture.md) — System design, stack, data model, costs
-- [`docs/04-agent-skills.md`](./docs/04-agent-skills.md) — Orchestrator + 5 agent skills with full specs
-- [`docs/05-build-plan.md`](./docs/05-build-plan.md) — Sequenced 24h build plan
-- [`docs/06-assumptions.md`](./docs/06-assumptions.md) — Explicit assumption registry (canonical source)
+- [`docs/02-features.md`](./docs/02-features.md) — feature list, MVP cut, user stories, edge cases
+
+**Engineering (backend + database)**
+- [`docs/03-architecture.md`](./docs/03-architecture.md) — system design, stack, data model, cost analysis
+- [`docs/04-agent-skills.md`](./docs/04-agent-skills.md) — orchestrator + 5 agent skills full specs
+- [`docs/06-assumptions.md`](./docs/06-assumptions.md) — assumption registry + replaceability map
+
+**Design (frontend)**
+- [`docs/08-design-system.md`](./docs/08-design-system.md) — brand, colors, typography, components, voice, PDF spec
+
+**Operations / Build**
+- [`docs/05-build-plan.md`](./docs/05-build-plan.md) — sequenced 18h build plan, phases 0-10
+- [`docs/07-next-session-plan.md`](./docs/07-next-session-plan.md) — multi-chat orchestration plan
+- [`docs/09-decision-log.md`](./docs/09-decision-log.md) — every key decision + reasoning (don't undo without approval)
 
 ## Stack
 

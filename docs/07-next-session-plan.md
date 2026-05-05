@@ -7,11 +7,15 @@ This doc is the handoff to the next chat session(s). Strategy + setup is complet
 ## Where we are
 
 ✅ Strategy doc complete (`strategy.md`)
-✅ Project setup docs complete (`docs/00-06`)
+✅ Project setup docs complete (`docs/00-09`)
 ✅ Assumptions registered (`docs/06-assumptions.md`)
-✅ GitHub repo created and initial commit pushed
+✅ Design system spec (`docs/08-design-system.md`)
+✅ Decision log (`docs/09-decision-log.md`)
+✅ GitHub repo created (private during dev), initial commit pushed
 ✅ Hetzner Server 1 confirmed for temporary deploy (~1 week)
 ✅ Supabase schema designed (in `docs/03-architecture.md` — not yet applied)
+✅ STATUS.md coordination dashboard ready
+✅ Copy-paste prompts ready in `prompts/` for Chat A / B / C
 
 🔲 Build & deploy P0 quote agent
 🔲 Loom walkthrough (≤5 min)
@@ -32,6 +36,40 @@ Two relevant patterns from the superpowers skills:
 - **Sub-agents within a chat** = sequential focused tasks (each gets fresh context, doesn't pollute the chat's main thread)
 
 ---
+
+## Coordination mechanism
+
+**Three layers of cross-chat sync:**
+
+1. **`STATUS.md` (root)** — single dashboard. Chat A is primary writer. Each chat reads at start of every session. Updates on every milestone.
+2. **Git** — atomic commits per chat with clear messages. `git pull` at start of each session. Each chat owns specific paths to avoid file conflicts.
+3. **`docs/09-decision-log.md`** — captures the WHY behind every key decision. Future chats read this to avoid undoing deliberate choices.
+
+**Onboarding pattern** (every chat starts here):
+- `git pull`
+- Read `STATUS.md`
+- Read all docs in the order specified in your prompt (`prompts/chat-X.md`)
+- Read relevant skills
+- Confirm open decisions with user
+- Begin work
+
+**Tracking pattern** (every chat does this):
+- Update `STATUS.md` per-chat row + recent completions on every milestone
+- Commit code with clear messages
+- Surface blockers in `STATUS.md`
+
+## Copy-paste prompts (in `prompts/` directory)
+
+- **`prompts/chat-a-backend.md`** → paste into a fresh chat for the backend orchestrator (Next.js + Supabase + agent skills + API + PDF + email + integration)
+- **`prompts/chat-b-frontend.md`** → paste into a fresh chat for the frontend builder (all pages + components per design system)
+- **`prompts/chat-c-deployment.md`** → paste into a fresh chat for the Hetzner deployment infrastructure setup
+
+Each prompt is self-contained and includes:
+- Exact reading order for docs and skills
+- Open decisions to confirm with user before starting
+- Owned scope vs. forbidden scope
+- Coordination protocol (STATUS.md updates, git commits, who owns which paths)
+- Verification criteria for "done"
 
 ## Multi-chat plan
 
