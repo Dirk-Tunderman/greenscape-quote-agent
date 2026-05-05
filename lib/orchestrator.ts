@@ -34,6 +34,7 @@
  * - validate_output rejects twice → status=validation_failed (Marcus reviews)
  */
 
+import { checkInputRelevance } from "@/lib/skills/check_input_relevance";
 import { extractScope } from "@/lib/skills/extract_scope";
 import { matchPricing, verifyCatalogIds } from "@/lib/skills/match_pricing";
 import { flagAmbiguity } from "@/lib/skills/flag_ambiguity";
@@ -53,6 +54,27 @@ import type {
 
 export const PER_QUOTE_BUDGET_USD = 0.5;
 
+/**
+ * Thrown when input quality gating rejects the draft request before any
+ * quote row is created. The API route catches this and returns 400 with
+ * the user-facing reason. No quote, no customer row, no audit cost beyond
+ * the ~$0.001 of the relevance check (which IS audited with quote_id=null).
+ *
+ * Two trigger points:
+ *  - Skill 0 (check_input_relevance) returns is_relevant=false + confidence=high
+ *  - extract_scope returns the __no_scope exit
+ */
+export class InputRejectedError extends Error {
+  reason_code: string;
+  user_message: string;
+  constructor(user_message: string, reason_code: string) {
+    super(user_message);
+    this.name = "InputRejectedError";
+    this.reason_code = reason_code;
+    this.user_message = user_message;
+  }
+}
+
 export interface DraftResult {
   quote: Quote;
   customer: Customer;
@@ -67,6 +89,25 @@ export interface DraftResult {
 export async function runDraft(body: DraftRequestBody): Promise<DraftResult> {
   const supabase = getSupabaseAdmin();
   const audit = new AuditContext(null);
+
+  // 0. Pre-flight relevance check (Haiku, ~$0.001) — cheapest possible defense
+  // against accidental garbage input. Catches "wrong content type" (recipe,
+  // mom conversation, lorem ipsum) BEFORE we burn Sonnet tokens or create a
+  // quote row. See docs/09-decision-log.md D41.
+  const relevance = await checkInputRelevance(
+    {
+      raw_notes: body.raw_notes,
+      project_type: body.project_type,
+    },
+    audit,
+  );
+  if (!relevance.is_relevant && relevance.confidence === "high") {
+    await audit.flush();
+    throw new InputRejectedError(
+      `This doesn't look like site walk notes — ${relevance.reason} (detected: ${relevance.detected_content}). Did you paste the wrong text?`,
+      `not_site_walk:${relevance.detected_content}`,
+    );
+  }
 
   // 1. Resolve customer (find by email or insert)
   let customer: Customer;
@@ -111,8 +152,8 @@ export async function runDraft(body: DraftRequestBody): Promise<DraftResult> {
   audit.setQuoteId(quote.id);
 
   try {
-    // 3. extract_scope
-    const scope_items = await extractScope(
+    // 3. extract_scope (may early-exit with __no_scope)
+    const scopeResult = await extractScope(
       {
         raw_notes: body.raw_notes,
         project_metadata: {
@@ -123,6 +164,29 @@ export async function runDraft(body: DraftRequestBody): Promise<DraftResult> {
       },
       audit,
     );
+
+    if (scopeResult.kind === "no_scope") {
+      // Backstop for inputs that pass Skill 0 relevance but contain nothing
+      // extractable (e.g., "I want to do something in my backyard"). Persist
+      // the reason as an artifact + audit, then throw so the API surfaces
+      // the message and the quote row is marked as failed input.
+      await supabase.from("quote_artifacts").insert({
+        quote_id: quote.id,
+        artifact_type: "scope",
+        payload: { __no_scope: true, reason: scopeResult.reason },
+      });
+      await supabase
+        .from("quotes")
+        .update({ status: "validation_failed", total_cost_usd: audit.cost() })
+        .eq("id", quote.id);
+      await audit.flush();
+      throw new InputRejectedError(
+        `We couldn't extract any scope from your notes — ${scopeResult.reason} Try adding what work you want done (e.g., "patio, ~16x20 travertine; pergola; irrigation refresh").`,
+        "no_scope_extractable",
+      );
+    }
+
+    const scope_items: ScopeItem[] = scopeResult.scope_items;
 
     await supabase.from("quote_artifacts").insert({
       quote_id: quote.id,

@@ -351,3 +351,40 @@ These decisions came after the initial mock-backed deploy went live and the user
 - `GET /api/line-items` post-delete: 59 active items (down from 60); `outdoor_lighting` category no longer in the active list (was the only item in it).
 
 **The agent's view of these changes is automatic:** `match_pricing.getCategories()` runs on every quote and returns only categories with active items. PATCHed unit prices flow through `lookupLineItems` immediately. DELETEd items disappear from search results. No restart, no cache invalidation.
+
+### D41 · Layered input-quality gating (Skill 0 + extract_scope no_scope exit + form min-length)
+
+**Why:** Brief explicitly rewards "guardrails on AI output — what happens if the model returns garbage?" (line 64). User review extended this to **input** garbage too — what if Marcus pastes the wrong text (a recipe, mom conversation, lorem ipsum) by accident? Original system would produce either an empty proposal (best case) or a hallucinated one (worst case), wasting ~$0.10 in tokens either way.
+
+**Three-layer defense, cheap to expensive (fail-fast economics):**
+
+**Layer 1 — Form validation (free, instant):**
+- `app/quotes/new/actions.ts` zod: `raw_notes` min 30 chars (was 20). Rejects "patio" or "hi mom" before any LLM token.
+
+**Layer 2 — Pre-flight relevance check (Skill 0, ~$0.001):**
+- `lib/skills/check_input_relevance.ts` (NEW): Haiku 4.5, T=0.0, max 250 tokens
+- Returns `{is_relevant, confidence: high|medium|low, reason, detected_content}` where detected_content is one of: site_walk_notes, personal_conversation, recipe_or_instructions, unrelated_text, too_sparse, non_english, lorem_ipsum_or_test, other
+- Runs at orchestrator Step 0 BEFORE customer find-or-create OR quote insert
+- **Fail-closed only on `is_relevant=false AND confidence=high`** — borderline cases fall through to downstream defenses
+- On rejection: throws `InputRejectedError` (new typed error) → API route returns 400 with the user-facing reason. NO quote row created. Audit row recorded with `quote_id=null` for diagnostic trail.
+
+**Layer 3a — extract_scope `__no_scope` exit (~$0.005):**
+- `lib/skills/extract_scope.ts` output schema is now a discriminated union — either `{scope_items: [...]}` OR `{__no_scope: true, __no_scope_reason: "..."}`
+- System prompt instructs the model to use the no_scope exit when input passed pre-flight but contains nothing actually extractable (e.g., "I want to do something in my backyard")
+- Orchestrator branches on `scopeResult.kind === "no_scope"` → persists scope artifact with the reason → marks quote `validation_failed` → throws `InputRejectedError` with quote-id-aware diagnostic message
+
+**Layer 3b — validate_output empty-priced-items check:**
+- `lib/skills/validate_output.ts` deterministic checks now include: if `priced_items.length === 0`, error severity. Catches the rare case where extract_scope returned items but match_pricing produced no priced rows (everything custom).
+
+**API + UX:**
+- `/api/agent/draft` catches `InputRejectedError` → returns 400 with `{error: <user message>, reason_code: <e.g., not_site_walk:personal_conversation>}`
+- `data/store.ts` api helper now extracts the JSON `error` field from non-2xx responses → form's `formError` displays the clean message (no "API → 400: ..." noise)
+
+**Live verification (2026-05-05):** Three test cases hit the live deploy:
+- Mom conversation → Skill 0 reject (personal_conversation, high conf) → 400, $0.0011, no quote row
+- "asdf test test test" → Skill 0 reject (lorem_ipsum_or_test, high conf) → 400, $0.0011, no quote row
+- "I want to do something with my backyard" → Skill 0 said too_sparse but only medium confidence → passed through → extract_scope returned __no_scope → 400, $0.006 total, quote row marked validation_failed for diagnostic trail
+
+**Loom-defensible framing:** *"What if the model returns garbage? validate_output catches it. What if the user submits garbage? Three layers — form validation rejects too-short input for free, a Haiku pre-flight check at $0.001 catches wrong-content-type, and extract_scope's __no_scope exit is the backstop for sparse-but-relevant inputs that fool the relevance check. Total defensive cost per submission: <$0.002 when the input is good; <$0.01 when caught."*
+
+**What's still deferred** (audio path — Chat A/B in flight): pre-transcription duration/size checks, post-transcription length + gibberish detection. Both belong with the audio feature, captured in `docs/15-future-extensions.md` once shipped.

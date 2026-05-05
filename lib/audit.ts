@@ -21,6 +21,7 @@ import { getSupabaseAdmin } from "@/lib/db/supabase";
 import type { CallResult } from "@/lib/anthropic";
 
 export type SkillName =
+  | "check_input_relevance"
   | "extract_scope"
   | "match_pricing"
   | "flag_ambiguity"

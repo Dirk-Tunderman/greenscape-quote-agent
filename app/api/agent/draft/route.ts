@@ -22,7 +22,7 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { runDraft } from "@/lib/orchestrator";
+import { runDraft, InputRejectedError } from "@/lib/orchestrator";
 
 export const runtime = "nodejs";
 export const maxDuration = 240;
@@ -61,6 +61,15 @@ export async function POST(req: Request) {
       ambiguities: result.ambiguities,
     });
   } catch (err) {
+    // Input-quality rejections → 400 with the user-facing reason. No quote
+    // row exists for the relevance-rejection path; the no_scope path leaves
+    // a validation_failed quote behind for diagnostics.
+    if (err instanceof InputRejectedError) {
+      return NextResponse.json(
+        { error: err.user_message, reason_code: err.reason_code },
+        { status: 400 },
+      );
+    }
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: "Draft failed", detail: msg }, { status: 500 });
   }

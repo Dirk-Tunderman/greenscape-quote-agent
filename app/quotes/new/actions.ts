@@ -22,13 +22,20 @@ import { z } from "zod";
 import { createDraft } from "@/data/store";
 import type { NewQuoteFormState } from "./form-state";
 
+// Layer 1 of the input-quality defense — see docs/09-decision-log.md D41.
+// Rejects obvious empty/too-short input for free, before any LLM token is
+// spent. The pre-flight relevance check (Skill 0) catches wrong-content-type;
+// extract_scope's __no_scope exit catches sparse-but-relevant inputs.
 const draftSchema = z.object({
   customer_name: z.string().trim().min(2, "Customer name is required"),
   customer_email: z.string().trim().email("Enter a valid email"),
   customer_phone: z.string().trim().optional().default(""),
   customer_address: z.string().trim().min(5, "Project address is required"),
   project_type: z.string().trim().min(2, "Project title is required"),
-  raw_notes: z.string().trim().min(20, "Add at least a few sentences of site walk notes"),
+  raw_notes: z
+    .string()
+    .trim()
+    .min(30, "Site walk notes are too short — add at least a sentence or two."),
   hoa: z.string().optional(),
 });
 

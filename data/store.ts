@@ -52,7 +52,22 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
   if (!res.ok) {
+    // If the server returned a JSON error body with an `error` field
+    // (4xx user-facing rejections), surface that message cleanly so the
+    // form action can show it to the user without API-detail noise.
     const text = await res.text().catch(() => "");
+    try {
+      const body = JSON.parse(text) as { error?: unknown };
+      if (typeof body.error === "string" && body.error.length > 0) {
+        throw new Error(body.error);
+      }
+    } catch (parseErr) {
+      // If parsing failed because we re-threw above, propagate that.
+      if (parseErr instanceof Error && parseErr.message && !parseErr.message.startsWith("Unexpected")) {
+        throw parseErr;
+      }
+      // Otherwise fall through to the verbose API error.
+    }
     throw new Error(`API ${path} → ${res.status}: ${text || res.statusText}`);
   }
   return res.json() as Promise<T>;

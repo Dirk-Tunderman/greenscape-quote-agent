@@ -24,6 +24,15 @@ import { callClaude, extractText, parseJsonFromText } from "@/lib/anthropic";
 import type { AuditContext } from "@/lib/audit";
 import type { ScopeItem } from "@/lib/types";
 
+/**
+ * Result variant: either a normal scope_items list, OR an early exit signal
+ * when the input is structurally relevant (passed Skill 0 / form gating)
+ * but contains nothing extractable. Orchestrator branches on this.
+ */
+export type ExtractScopeResult =
+  | { kind: "scope"; scope_items: ScopeItem[] }
+  | { kind: "no_scope"; reason: string };
+
 const CATEGORIES = [
   "patio",
   "pergola",
@@ -52,9 +61,20 @@ const ScopeItemSchema = z.object({
   needs_clarification: z.string().nullable(),
 });
 
-const OutputSchema = z.object({
-  scope_items: z.array(ScopeItemSchema).min(0).max(20),
-});
+// Either a scope_items array, OR a __no_scope exit when the input passed
+// Skill 0 relevance but doesn't contain anything actually extractable
+// (e.g., "I want to do something in my backyard but I'm not sure what").
+const OutputSchema = z.union([
+  z.object({
+    scope_items: z.array(ScopeItemSchema).min(0).max(20),
+    __no_scope: z.literal(false).optional(),
+  }),
+  z.object({
+    __no_scope: z.literal(true),
+    __no_scope_reason: z.string().min(1),
+    scope_items: z.array(ScopeItemSchema).optional(),
+  }),
+]);
 
 const SYSTEM = `You are a quote-drafting assistant for Greenscape Pro, a Phoenix AZ design-build company specializing in hardscape and landscape.
 
@@ -74,7 +94,16 @@ CRITICAL RULES:
 - It's fine to have certainty=low — that's how Marcus knows what to clarify.
 - Output STRICT JSON, no commentary, no markdown fences.
 
-OUTPUT SHAPE:
+NO-SCOPE EXIT:
+If the input passed pre-flight checks but contains NOTHING extractable as scope items (e.g., it's just customer info with no project description, or "I want to do something in my backyard but I'm not sure what", or topical-but-empty), DO NOT invent items. Instead return:
+{
+  "__no_scope": true,
+  "__no_scope_reason": "<one short sentence explaining why no items could be extracted>"
+}
+
+OUTPUT SHAPES:
+
+Normal:
 {
   "scope_items": [
     {
@@ -86,6 +115,12 @@ OUTPUT SHAPE:
       "needs_clarification": null
     }
   ]
+}
+
+No-scope exit:
+{
+  "__no_scope": true,
+  "__no_scope_reason": "Input mentions a backyard but does not specify any work scope (no patio, pergola, fire pit, etc.)."
 }`;
 
 const FEW_SHOT: { user: string; assistant: string }[] = [
@@ -185,8 +220,8 @@ export interface ExtractScopeInput {
 export async function extractScope(
   input: ExtractScopeInput,
   audit: AuditContext,
-): Promise<ScopeItem[]> {
-  const userPrompt = `Project metadata: ${JSON.stringify(input.project_metadata)}\n\nSite walk notes:\n"""\n${input.raw_notes}\n"""\n\nReturn the structured scope_items JSON object.`;
+): Promise<ExtractScopeResult> {
+  const userPrompt = `Project metadata: ${JSON.stringify(input.project_metadata)}\n\nSite walk notes:\n"""\n${input.raw_notes}\n"""\n\nReturn the structured scope_items JSON object — OR the no-scope exit if nothing extractable is present.`;
 
   const messages = [
     ...FEW_SHOT.flatMap((s) => [
@@ -219,7 +254,15 @@ export async function extractScope(
         call,
         success: true,
       });
-      return validated.scope_items as ScopeItem[];
+
+      // Branch on the discriminated union
+      if ("__no_scope" in validated && validated.__no_scope === true) {
+        return { kind: "no_scope", reason: validated.__no_scope_reason };
+      }
+      return {
+        kind: "scope",
+        scope_items: (validated.scope_items ?? []) as ScopeItem[],
+      };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       audit.record({
@@ -235,7 +278,7 @@ export async function extractScope(
         { role: "assistant", content: raw },
         {
           role: "user",
-          content: `Your previous response did not parse against the required schema (${lastError.message}). Re-output ONLY the JSON object matching the shape shown in the system prompt — no markdown fences, no commentary.`,
+          content: `Your previous response did not parse against the required schema (${lastError.message}). Re-output ONLY the JSON object matching one of the two shapes (normal scope_items, or __no_scope exit) — no markdown fences, no commentary.`,
         },
       );
     }

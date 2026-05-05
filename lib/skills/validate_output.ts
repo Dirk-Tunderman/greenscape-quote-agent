@@ -104,6 +104,22 @@ export async function validateOutput(
 
   // ───── Deterministic checks ─────
 
+  // Backstop against empty-proposal: if priced_items is empty, the proposal
+  // CANNOT be valid regardless of section structure. extract_scope's
+  // __no_scope exit normally catches this earlier; this guards the case
+  // where match_pricing legitimately returned 0 items (e.g., everything
+  // was custom-only).
+  if (input.priced_items.length === 0) {
+    issues.push({
+      severity: "error",
+      check: "no_priced_items",
+      detail:
+        "No priced line items were produced — proposal would be empty. Either the catalog had no matches or all scope items required custom pricing.",
+      suggested_fix:
+        "Review the extracted scope; consider adding manual line items or expanding the catalog.",
+    });
+  }
+
   // Required sections
   for (const sec of REQUIRED_SECTIONS) {
     if (!sec.pattern.test(md)) {
