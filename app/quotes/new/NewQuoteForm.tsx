@@ -14,7 +14,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field, Input, Select, Textarea } from "@/components/Input";
 import { Button } from "@/components/Button";
-import { createDraftAction, EMPTY_FORM_STATE, type NewQuoteFormState } from "./actions";
+import { createDraftAction } from "./actions";
+import { EMPTY_FORM_STATE, type NewQuoteFormState } from "./form-state";
 
 const PROJECT_TYPES = [
   "Patio",

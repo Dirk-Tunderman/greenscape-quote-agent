@@ -6,12 +6,13 @@
  * 60-180s, which is why the form's pending state is visible while
  * useFormStatus is true). On success, redirects to /quotes/[id].
  *
- * Returns { fieldErrors, formError, values } on validation failure so the
- * form can re-render with inline errors and preserved input.
+ * Returns NewQuoteFormState on validation failure so the form re-renders
+ * with inline errors and preserved input.
  *
- * The "budget signal" form field was removed — see prompts/chat-a-v2-wireup.md
- * Task A5: it was UI-only and never piped into agent reasoning, so it was
- * worse than not collecting it.
+ * NOTE: this file is "use server" — Next.js 15 only allows async function
+ * exports here. The form-state interface + EMPTY_FORM_STATE constant live
+ * in `./form-state.ts` so they can be shared with the client component
+ * without violating that rule.
  */
 "use server";
 
@@ -19,6 +20,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createDraft } from "@/data/store";
+import type { NewQuoteFormState } from "./form-state";
 
 const draftSchema = z.object({
   customer_name: z.string().trim().min(2, "Customer name is required"),
@@ -29,18 +31,6 @@ const draftSchema = z.object({
   raw_notes: z.string().trim().min(20, "Add at least a few sentences of site walk notes"),
   hoa: z.string().optional(),
 });
-
-export interface NewQuoteFormState {
-  fieldErrors: Record<string, string>;
-  formError: string | null;
-  values: Record<string, string>;
-}
-
-export const EMPTY_FORM_STATE: NewQuoteFormState = {
-  fieldErrors: {},
-  formError: null,
-  values: {},
-};
 
 export async function createDraftAction(
   _prev: NewQuoteFormState,
