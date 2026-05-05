@@ -1,0 +1,47 @@
+# Source materials from L&S — keep private, not for public repo
+assignment-docs/
+
+# Environment + secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tests
+coverage/
+.nyc_output/
+
+# Local Supabase / database files
+supabase/.branches/
+supabase/.temp/
+
+# Misc
+.cache/
+.turbo/
