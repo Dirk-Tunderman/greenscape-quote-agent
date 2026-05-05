@@ -53,13 +53,13 @@ The architecture is built so that every assumption maps to a swappable component
 - No tax line on the proposal → ✅ confirmed by research Q3. Phoenix/AZ specific: post-July-2021 statute removed the requirement to separately state TPT, AND there's a residential exemption from prime-contracting TPT for projects ≤$100K per unit (covers most of $8K-$120K range). Flag this to Marcus at onboarding — potential money on the table.
 - No contingency line item → ✅ confirmed by research Q6 (contingency = unknown-unknown, kept internal). BUT add **allowances** (known-unknowns like "lighting fixtures: $1,200 allowance") via `item_type` enum on `line_items`.
 - Custom items (anything not in catalog) get `is_custom = true`, `unit_price = 0` placeholder, surfaced to Marcus to price manually
-- **Payment schedule REVISED** (was 50/25/25, now 30/30/30/10) — research Q2 found 50% deposit is on the aggressive end; premium positioning calls for lower deposit / milestone-based draws. Default: deposit / mobilization / midpoint / completion = 30/30/30/10. Schema-configurable per quote.
+- **Payment schedule: 50/50** — matches Marcus's stated practice (onboarding line 71: *"Stripe deposit invoice sent (50%)"*). Reverted from research-recommended 30/30/30/10 because the assignment is the ground truth for Marcus's actual workflow; research is contextual recommendation, not Marcus's lived practice. See decision log D37 (reversal of D26). Schema-configurable per quote.
 
 **Why defensible (post-research):**
 - All-in pricing: industry standard for residential design-build (research Q1, high confidence)
 - AZ TPT bundling: Arizona DOR explicitly permits factoring; 2021 statute change removed separately-stated requirement
 - Allowance vs contingency: AIA + Buildertrend industry guidance (research Q6)
-- 30/30/30/10 payment schedule: Angi/Sweeten cap "normal" deposit at 25-33%; matches premium positioning
+- 50/50 payment schedule: matches Marcus's documented practice (onboarding line 71)
 
 **Day 1 of real engagement:** Confirm Marcus's actual current pricing model + payment schedule + AZ TPT election (factoring vs separately stated). Schema is configurable, no code change needed.
 
@@ -80,7 +80,7 @@ The architecture is built so that every assumption maps to a swappable component
 | 5 | **Exclusions** ⭐NEW⭐ | Explicit "what's NOT included" — kills the most common dispute pattern. Typical: permits beyond stated allowance, utility relocation, irrigation repair beyond visible damage, HOA fees, post-install plant replacement (research Q4) |
 | 6 | Timeline | Estimated start date range, duration in weeks, phased milestones |
 | 7 | **Warranty** ⭐NEW⭐ | Separate trust-building section: "2-yr workmanship hardscape, 1-yr irrigation, 90-day plant material, manufacturer warranties pass through" (research Q5 — Belgard authorized installer norm is 3-yr min; defaults to 2-yr conservative) |
-| 8 | Terms & Next Steps | Payment schedule **30/30/30/10** (revised from 50/25/25 per research Q2); 30-day validity; change order clause: *"All changes require written authorization before work proceeds; verbal requests not actionable"* (research Q11) |
+| 8 | Terms & Next Steps | Payment schedule **50/50** (deposit on signing, balance on completion — matches onboarding line 71). 30-day validity; change order clause: *"All changes require written authorization before work proceeds; verbal requests not actionable"* (research Q11) |
 | 9 | **Signature + License Block** ⭐NEW⭐ | Customer + Marcus signature lines; **ROC license # required by AZ statute** (research Q7); insurance carrier line (recommended trust signal) |
 
 **Length:** 5-6 pages PDF (research Q8 — sweet spot for residential design-build; >10 pages = over-engineered for $28K).

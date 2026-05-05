@@ -60,11 +60,13 @@ export interface PaymentScheduleItem {
   pct: number;
 }
 
+// 50/50 matches Marcus's stated practice (onboarding line 71: "Stripe deposit
+// invoice sent (50%)"). Reverted from research-recommended 30/30/30/10 — see
+// docs/09-decision-log.md D26 (original research recommendation) and D37
+// (reversal to match assignment). Per-quote configurable via quotes.payment_schedule.
 export const DEFAULT_PAYMENT_SCHEDULE: PaymentScheduleItem[] = [
-  { milestone: "deposit", pct: 30 },
-  { milestone: "mobilization", pct: 30 },
-  { milestone: "midpoint", pct: 30 },
-  { milestone: "completion", pct: 10 },
+  { milestone: "deposit", pct: 50 },
+  { milestone: "completion", pct: 50 },
 ];
 
 export interface Quote {

@@ -282,3 +282,33 @@ These decisions came after the initial mock-backed deploy went live and the user
 **What we did:** New `PATCH /api/customers/[id]` route. New `CustomerCard` client component with click-to-edit fields (name, email, phone, address). Optimistic UI; server error reverts the field to last-committed.
 
 **Considered:** Extending `PATCH /api/quotes/[id]` to accept customer fields. Rejected: the customer record is shared across quotes (a single Marcus customer can have multiple quotes over time), so editing customer fields belongs at the customer resource, not nested under one of their quotes.
+
+### D37 · Payment schedule reverted to 50/50 (reversal of D26)
+
+**Why:** User review caught that the 30/30/30/10 schedule (introduced in D26 from industry research) silently overrode Marcus's stated practice. The assignment is the ground truth for Marcus's actual workflow; research is contextual recommendation, not Marcus's lived practice.
+
+**Source:** Onboarding line 71: *"Stripe deposit invoice sent (50%)."* That's the only payment data point in the docs.
+
+**New default:** `[{milestone:"deposit",pct:50},{milestone:"completion",pct:50}]`. Two milestones. Matches the doc literally; the rest at completion is the simplest interpretation.
+
+**Considered:** 50/40/10 (deposit / midpoint / retention) — more industry-typical structure but adds one more invented milestone. Rejected for "smaller change matches the assignment more cleanly."
+
+**Schema unchanged** (D26's jsonb column survives). Migration `20260505_004_revert_payment_schedule.sql` updates only the column DEFAULT. Existing quotes are unaffected; new quotes get 50/50 unless overridden.
+
+**Live walkthrough framing:** "We initially defaulted to research-recommended 30/30/30/10 for premium positioning, then reverted to 50/50 because Marcus's actual stated practice in the onboarding is the ground truth — we don't override the client's lived workflow with research recommendations without their input."
+
+### D38 · Manual catalog additions via POST endpoint (line items, not categories)
+
+**Why:** User wants to be able to add new line items to the catalog as edge cases come up — without a code change. Categories require an enum migration so they remain a code change for now (deferred to Phase 2 — see `docs/15-future-extensions.md`).
+
+**What we shipped:**
+- `POST /api/line-items` accepts `{category, name, description, unit, unit_price, item_type?}` and inserts into `greenscape.line_items`
+- Newly inserted items become **immediately available to the agent** because `match_pricing` queries the live `line_items` table on every run (no cache, no skill prompt change needed)
+- Categories constrained to the 9 existing enum values; UI form should expose this as a dropdown
+- UI form on `/admin/line-items` is a Chat B follow-up task (see STATUS.md)
+
+**Considered:** Allowing free-form categories (would require relaxing the enum to text or with a CHECK constraint). Rejected for MVP because:
+1. Category drives both the on-screen group sections AND the PDF section ordering AND the `match_pricing` system prompt's hardcoded `CATEGORIES` array — adding a new category requires aligned code changes anyway
+2. The 9 existing categories cover Marcus's documented work areas (line 18 of onboarding) — new categories would be edge cases
+
+**Phase 2 path** for new categories: convert `line_item_category` enum → text with a registry table; update the agent's system prompt to read categories from the registry at runtime. Documented in `docs/15-future-extensions.md`.

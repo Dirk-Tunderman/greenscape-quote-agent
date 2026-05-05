@@ -6,7 +6,7 @@
 
 ## Last updated
 
-`2026-05-05` · v2 UX iteration complete (post-wire-up: PDF generation non-terminal · single-source pricing in proposal · manual line items + per-row category + delete · inline-editable customer card · documentation refresh)
+`2026-05-05` · planning chat — payment schedule reverted to 50/50 (matches assignment line 71 · D37); POST /api/line-items live for runtime catalog adds (D38); future-extensions doc added (`docs/15-future-extensions.md`)
 Next update: pre-Loom code-review pass (if desired) → submission
 
 ---
@@ -31,6 +31,12 @@ Backend deployed and live. Real agent runs against real DB + Anthropic. Resend c
 **Cost guardrails confirmed:** both runs well under $0.50 per-quote cap. Total Anthropic spend across all dev + 2 integration runs ≈ $0.50.
 
 ROC license + insurance fields stripped from generation flow per user instruction (columns kept on `quotes` for forward compat). 8-section proposal template (Cover/Greeting/Project Overview/Scope+Pricing/Exclusions/Timeline/Warranty/Terms/Signature). Aligned with research D26-D30 minus ROC/insurance.
+
+**Post-review change (2026-05-05):** Payment schedule reverted to **50/50** (matches onboarding line 71). 30/30/30/10 was a research-derived default that silently overrode Marcus's stated practice — see D37. Migration `20260505_004_revert_payment_schedule.sql` updated the column DEFAULT; existing quotes unchanged.
+
+**Post-review feature (2026-05-05):** `POST /api/line-items` now accepts manual catalog additions. Newly inserted items are immediately available to the agent (no skill change — `match_pricing` queries the live DB on every run). UI form on `/admin/line-items` is a Chat B follow-up (~30 min) — see `docs/15-future-extensions.md` F1.
+
+**Future extensions registry:** `docs/15-future-extensions.md` captures everything deliberately deferred from MVP (UI for line-item add, voice/Deepgram, photos, GHL push, Stripe, DocuSign, 3D render workflow for >$30K, HOA package gen, crew availability, real Anthropic key, real catalog/template/few-shot swap-in for Day 1). Sequenced by horizon (Phase 2 / 3 / 4-real-engagement).
 
 ---
 
